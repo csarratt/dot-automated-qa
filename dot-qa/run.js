@@ -72,7 +72,18 @@ function report(root, viewports, runId) {
     const data = Object.entries(s.checks || {})
       .map(([k,v]) => `<tr><td>${escape(k)}</td><td>${escape(v)}</td></tr>`).join('');
     const notes = (s.notes || []).map(escape).join('<br>');
-    return `<details class="details"><summary>Individual checks</summary><table class="mini"><tbody>${data}</tbody></table><p>${notes}</p></details>`;
+    const opt = s.optimizely || {};
+    const ids = [
+      ...(opt.activeExperiments || []).map(x =>
+        'Experiment ' + x.experimentId + ' / variation ' + (x.variationId || 'unknown') +
+        (x.holdback ? ' (holdback)' : '')),
+      ...(opt.activeCampaigns || []).map(x =>
+        'Campaign ' + x.campaignId + ' / experiment ' + (x.experimentId || 'unknown') +
+        ' / variation ' + (x.variationId || 'unknown') +
+        (x.holdback ? ' (holdback)' : ''))
+    ].slice(0, 30).map(escape).join('<br>');
+    return `<details class="details"><summary>Individual checks</summary><table class="mini"><tbody>${data}</tbody></table>` +
+      `<div class="small"><strong>Active Optimizely IDs (diagnostic only):</strong><br>${ids || 'None reported'}</div><p>${notes}</p></details>`;
   };
   const rows = records.map(r => {
     const screenshot = s => {
