@@ -32,6 +32,57 @@ async function calibrate() {
   throw new Error('Could not calibrate CSS viewport');
 }
 
+async function waitForRenderedPage() {
+  let previous = null;
+  let consecutive = 0;
+  let last = null;
+  await browser.waitUntil(async () => {
+    last = await browser.execute(() => {
+      const visible = element => {
+        if (!element) return false;
+        const rect = element.getBoundingClientRect();
+        const css = getComputedStyle(element);
+        return rect.width > 0 && rect.height > 0 &&
+          css.display !== 'none' && css.visibility !== 'hidden';
+      };
+      const headings = [...document.querySelectorAll('h1, main h2')].filter(visible);
+      const main = document.querySelector('main, [role="main"]');
+      const candidate = main && visible(main) ? main : document.body;
+      const bodyText = (candidate?.innerText || '').trim();
+      const loadingLabels = [...document.querySelectorAll(
+        '[role="progressbar"], [aria-busy="true"], [aria-label], [role="status"]'
+      )].filter(visible).filter(el =>
+        el.getAttribute('role') === 'progressbar' ||
+        el.getAttribute('aria-busy') === 'true' ||
+        /^(loading|please wait)(\\.{0,3})?$/i.test(
+          (el.getAttribute('aria-label') || el.innerText || '').trim()
+        )
+      );
+      const loaderOnly = !headings.length &&
+        /^(loading|please wait)(\\.{0,3})?$/i.test(bodyText.slice(0, 50));
+      return {
+        complete: document.readyState === 'complete',
+        hasHeading: headings.length > 0,
+        hasMainContent: bodyText.length > 120,
+        loading: loadingLabels.length > 0 || loaderOnly,
+        // Layout and link count must stop changing before evidence capture.
+        signature: [headings.length, document.links.length,
+          document.documentElement.scrollHeight, bodyText.length].join(':')
+      };
+    });
+    const ready = last.complete && last.hasHeading &&
+      last.hasMainContent && !last.loading;
+    consecutive = ready && last.signature === previous ? consecutive + 1 : 0;
+    previous = last.signature;
+    return ready && consecutive >= 3;
+  }, {
+    timeout: 45000,
+    interval: 750,
+    timeoutMsg: 'Page render did not stabilize: expected visible heading, main content, and no active loading indicator'
+  });
+  return last;
+}
+
 async function inspect() {
   return browser.execute(() => {
     const sanitize = raw => {
@@ -105,7 +156,10 @@ describe('DOT public-page experiment QA', () => {
       await browser.waitUntil(() => browser.execute(() => document.readyState === 'complete'),
         { timeout: 30000 });
       await calibrate();
-      await browser.pause(400);
+      report.checks.renderReady = 'Not verified';
+      const readiness = await waitForRenderedPage();
+      report.checks.renderReady = 'Passed';
+      report.readiness = readiness;
       const page = await inspect();
       report.page = page;
       report.checks.viewport = page.viewport.width === width && page.viewport.height === height ? 'Passed' : 'Failed';
@@ -130,7 +184,7 @@ describe('DOT public-page experiment QA', () => {
         'networkErrors', 'ctaInteractions', 'visualRegression']) {
         report.checks[item] = 'Not tested';
       }
-      report.status = ['viewport','page','images','overflow','scrolling'].some(k =>
+      report.status = ['renderReady','viewport','page','images','overflow','scrolling'].some(k =>
         report.checks[k] === 'Failed') ? 'Failed' : 'Passed with review';
       if (report.status === 'Failed') throw new Error('Core page validation failed');
     } catch (error) {
