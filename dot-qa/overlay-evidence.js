@@ -55,6 +55,8 @@ async function maskKnownOverlays(browser) {
     for (const { el, kind } of candidates) {
       if (el.hasAttribute('data-dot-qa-masked')) continue;
       el.setAttribute('data-dot-qa-masked', kind);
+      el.setAttribute('data-dot-qa-original-visibility', el.style.getPropertyValue('visibility'));
+      el.setAttribute('data-dot-qa-original-priority', el.style.getPropertyPriority('visibility'));
       el.style.setProperty('visibility', 'hidden', 'important');
       masked.push(kind);
     }
@@ -65,7 +67,12 @@ async function maskKnownOverlays(browser) {
 async function restoreKnownOverlays(browser) {
   await browser.execute(() => {
     for (const el of document.querySelectorAll('[data-dot-qa-masked]')) {
-      el.style.removeProperty('visibility');
+      const original = el.getAttribute('data-dot-qa-original-visibility') || '';
+      const priority = el.getAttribute('data-dot-qa-original-priority') || '';
+      if (original) el.style.setProperty('visibility', original, priority);
+      else el.style.removeProperty('visibility');
+      el.removeAttribute('data-dot-qa-original-visibility');
+      el.removeAttribute('data-dot-qa-original-priority');
       el.removeAttribute('data-dot-qa-masked');
     }
   });
