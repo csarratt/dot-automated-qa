@@ -53,8 +53,8 @@ function report(root, viewports, runId) {
   const rows = records.map(r => {
     const screenshot = s => s.screenshots?.top ?
       `<a href="${escape(s.screenshots.top)}">Top</a>` : 'Unavailable';
-    const example = [...r.links.added.map(i => 'Added: ' + i[0] + ' -> ' + i[1]),
-      ...r.links.removed.map(i => 'Removed: ' + i[0] + ' -> ' + i[1])]
+    const example = [...r.links.added.map(i => 'Added: ' + i.label + ' -> ' + i.destination),
+      ...r.links.removed.map(i => 'Removed: ' + i.label + ' -> ' + i.destination)]
       .slice(0, 8).map(escape).join('<br>') || 'None';
     return `<tr><td>${escape(r.browser)}</td><td>${escape(r.viewport)}</td>` +
       `<td>${escape(r.baseline.status)}</td><td>${escape(r.variation.status)}</td>` +
