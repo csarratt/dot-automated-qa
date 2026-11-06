@@ -89,7 +89,7 @@ function report(root, viewports, runId) {
     const screenshot = s => {
       const links = [];
       if (s.screenshots?.top) links.push(`<a href="${escape(s.screenshots.top)}">Original</a>`);
-      if (s.screenshots?.prepared) links.push(`<a href="${escape(s.screenshots.prepared)}">Mask attempt</a>`);
+      if (s.screenshots?.beforeConsent) links.push(`<a href="${escape(s.screenshots.beforeConsent)}">Before consent</a>`);
       if (s.screenshots?.bottom) links.push(`<a href="${escape(s.screenshots.bottom)}">Bottom</a>`);
       return links.join(' · ') || 'Unavailable';
     };
@@ -111,7 +111,7 @@ function report(root, viewports, runId) {
     `<meta name="viewport" content="width=device-width,initial-scale=1">` +
     `<title>DOT Experiment QA</title><style>body{font:15px system-ui,sans-serif;max-width:1400px;margin:30px auto;padding:0 18px;color:#20252a}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ddd;padding:12px;text-align:left;vertical-align:top}th{background:#f4f5f6}details{overflow-wrap:anywhere}details.details{margin-top:7px}details.details summary{cursor:pointer;color:#315c8a;font-size:13px}details.details .findings{padding:8px 0;font-size:13px;line-height:1.5}p{line-height:1.5}.mini{font-size:12px}.mini td{padding:4px 8px}.small{font-size:12px;line-height:1.5;margin-top:4px}td{max-width:260px;overflow-wrap:anywhere}</style></head><body>` +
     `<h1>DOT Experiment QA</h1><p>Run ID: ${escape(runId)}</p>` +
-    `<p><strong>Review required:</strong> Original screenshots are unmodified evidence. Mask attempts may still show cookie/QA overlays; they are NOT confirmed clean. Do not treat these as validation evidence. Link differences are findings, not automatic defect determinations. Variation identity, Optimizely metrics, JS/network errors, CTA interactions, visual regression, Runway authentication and mobile devices are NOT TESTED by this build.</p>` +
+    `<p><strong>Review required:</strong> Original screenshots are unmodified evidence. The runner selects the real Accept Cookies control where available and captures post-consent evidence. If the banner remains, inspect the screenshots. Cookie acceptance can affect tracking and must be consistent across experiences. Link differences are findings, not automatic defect determinations. Variation identity, Optimizely metrics, JS/network errors, CTA interactions, visual regression, Runway authentication and mobile devices are NOT TESTED by this build.</p>` +
     `<table><thead><tr><th>Browser</th><th>CSS viewport</th><th>Baseline</th><th>Variation</th><th>Link changes</th><th>Screenshots</th></tr></thead><tbody>${rows}</tbody></table>` +
     `<p>Baseline uses optimizely_disable=true and independent remote sessions. Sanitized link comparisons omit query values and may miss changes. Query-presence changes are separated to reduce false positives. No automatic pixel-level visual regression is performed. Keep all reports local and restricted.</p></body></html>`;
   fs.writeFileSync(path.join(root,'report.html'), html, { mode: 0o600 });
