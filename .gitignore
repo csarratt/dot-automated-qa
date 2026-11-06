@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+!.env.example
+qa-results/
+allure-results/
+allure-report/
+logs/
+*.log
+.DS_Store
+*.pem
+*.key
