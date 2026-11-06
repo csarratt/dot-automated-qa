@@ -32,8 +32,12 @@ function difference(before, after) {
   };
   const a = count(before.page.links), b = count(after.page.links);
   const added = [], removed = [];
-  for (const [key, n] of b) for (let i = 0; i < n - (a.get(key) || 0); i++) added.push(JSON.parse(key));
-  for (const [key, n] of a) for (let i = 0; i < n - (b.get(key) || 0); i++) removed.push(JSON.parse(key));
+  const asFinding = key => {
+    const [label, destination, issue] = JSON.parse(key);
+    return { label, destination, issue };
+  };
+  for (const [key, n] of b) for (let i = 0; i < n - (a.get(key) || 0); i++) added.push(asFinding(key));
+  for (const [key, n] of a) for (let i = 0; i < n - (b.get(key) || 0); i++) removed.push(asFinding(key));
   return {
     status: added.length || removed.length ? 'Needs review' : 'No differences detected',
     addedCount: added.length, removedCount: removed.length,
