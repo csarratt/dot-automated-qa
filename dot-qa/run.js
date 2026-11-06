@@ -4,6 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 const { requirePublicUsaaUrl } = require('./url');
+const { resolveSauceCredentials } = require('./sauce-credentials');
 
 const project = path.resolve(__dirname, '..');
 const args = process.argv.slice(2);
@@ -119,6 +120,11 @@ function report(root, viewports, runId) {
 }
 
 function main() {
+  if (args.includes('--check-credentials')) {
+    const credentials = resolveSauceCredentials();
+    console.log('Sauce Labs credentials available (' + credentials.source + '). Values not displayed.');
+    return;
+  }
   if (!argument('--url')) {
     console.log("Usage: node dot-qa/run.js --url 'YOUR_PREVIEW_URL' --viewports 1366x768,1024x768");
     process.exitCode = 1;
@@ -133,8 +139,7 @@ function main() {
     const [w,h] = viewport.split('x').map(Number);
     if (w < 320 || w > 1900 || h < 480 || h > 1080) throw new Error('Unsupported viewport size');
   }
-  if (!process.env.SAUCE_USERNAME || !process.env.SAUCE_ACCESS_KEY)
-    throw new Error('Sauce Labs credentials are not available in this terminal');
+  const sauce = resolveSauceCredentials();
   const runId = new Date().toISOString().replace(/[:.]/g, '-') + '-' + crypto.randomBytes(3).toString('hex');
   const root = path.join(project,'qa-results','runs',runId);
   fs.mkdirSync(root, { recursive: true, mode: 0o700 });
@@ -147,7 +152,8 @@ function main() {
       '--spec','./test/specs/dot-experiment.test.js'
     ], {
       cwd: project,
-      env: { ...process.env, DOT_QA_URL: preview, DOT_QA_MODE: mode,
+      env: { ...process.env, SAUCE_USERNAME: sauce.username,
+        SAUCE_ACCESS_KEY: sauce.accessKey, DOT_QA_URL: preview, DOT_QA_MODE: mode,
         DOT_QA_WIDTH: w, DOT_QA_HEIGHT: h, DOT_QA_OUTPUT: root },
       stdio: 'inherit', timeout: 420000
     });
