@@ -1,13 +1,13 @@
 # DOT Automated QA: experiment comparison POC
 
-This private repository contains **generic, public-page-only** WebdriverIO source code for comparing an Optimizely-disabled baseline to a variation preview across browsers and viewport sizes.
+This private repository contains **generic, public-and-Runway-page** WebdriverIO source code for comparing an Optimizely-disabled baseline to a variation preview across browsers and viewport sizes.
 
 **Do not add** USAA-specific preview URLs, internal page details, Runway IDs, secrets, cookies, Sauce Labs access keys, screenshots, reports, or member data to GitHub. Confirm company policy permits external code hosting. Keep the repository private.
 
 ## Contents
 
-- `dot-qa/url.js` validates public USAA URLs and derives an `optimizely_disable=true` baseline.
-- `dot-qa/run.js` runs all browsers configured in your existing WebdriverIO project, once for each baseline/variation and target viewport. It generates a **local** HTML report.
+- `dot-qa/url.js` validates approved USAA public and Runway URLs and derives an `optimizely_disable=true` baseline.
+- `dot-qa/wdio-environment.conf.js` uses the existing local four-browser configuration, automatically selecting the shared staging tunnel for rwww and no tunnel for www.\n- `dot-qa/run.js` runs all browsers configured in your existing WebdriverIO project, once for each baseline/variation and target viewport. It generates a **local** HTML report.
 - `test/specs/dot-experiment.test.js` gathers page, viewport, images, scrolling, link inventory, and screenshot evidence.
 - `.gitignore` blocks common secrets, dependencies and local QA outputs.
 
@@ -15,7 +15,7 @@ This private repository contains **generic, public-page-only** WebdriverIO sourc
 
 Do **not** replace your established `wdio.conf.js`, other tests, or your SharePoint/Box/dispatcher scripts.
 
-From your existing `DOT Automated Testing` project root, copy the three source files from this repository into the matching paths and create any missing folders. If your approved work environment can access GitHub and permits cloning this private repo, you may also clone it to a separate folder and copy those three files into your current project. **Do not clone over the working project.**
+From your existing `DOT Automated Testing` project root, copy the four source files from this repository into the matching paths and create any missing folders. If your approved work environment can access GitHub and permits cloning this private repo, you may also clone it to a separate folder and copy those four files into your current project. **Do not clone over the working project.**
 
 The current project must have its working Node.js/WebdriverIO dependencies, Sauce Labs credentials in the current terminal and the verified four-browser `capabilities` matrix. Windows Chrome/Edge must use the display setting previously validated on that machine; Safari should retain its working macOS configuration.
 
@@ -47,7 +47,7 @@ Open the local `qa-results/runs/<run-id>/report.html` path printed in the termin
 - Passive link inventory, suspicious-link findings and baseline-versus-variation additions/removals. No links are clicked.
 - Top/bottom screenshots and a local HTML report.
 
-**Not implemented:** Optimizely metric/event verification, initial JavaScript/network error capture, automated variation identity checks, automated visual diff, safe CTA interactions, mobile device sessions, Runway login, and SharePoint status synchronization. These checks must not be represented as passing.
+**Runway connectivity:** Chrome was separately verified to reach and render a Runway page through the shared staging tunnel. This package has not yet verified the full four-browser Runway matrix or authenticated member flows.\n\n**Not implemented:** Optimizely metric/event verification, initial JavaScript/network error capture, automated variation identity checks, automated visual diff, safe CTA interactions, mobile device sessions, Runway login, and SharePoint status synchronization. These checks must not be represented as passing.
 
 The baseline generated with `optimizely_disable=true` is not equivalent to a true Optimizely control preview. A baseline comparison can reflect unrelated dynamic content. Query parameter **values** are deliberately omitted from link inventories, meaning changes restricted to query values won't be detected.
 
@@ -61,3 +61,7 @@ A QA pass does not certify an experiment for publication. Keep existing DOT peer
 4. Add supported JavaScript/network monitoring and structured issue classification.
 5. Add authorized Runway authentication in the work environment, not this repository.
 6. Integrate the verified QA engine into the existing SharePoint request workflow after data-handling review.
+
+## Environment-aware execution
+
+For `https://www.usaa.com` the runner strips any old tunnel settings; for `https://rwww.usaa.com` it supplies the existing shared tunnel `usaa-stage-tunnel` and owner `usaa_admin` to each browser capability. This modifies only the in-memory WebdriverIO configuration, not your local `wdio.conf.js`. It does not bypass authentication or guarantee tunnel permission for other browsers. Use an approved Runway preview and review the actual screenshots. Do not print or share preview tokens.
