@@ -96,3 +96,9 @@ To install, copy:
 - new `dot-qa/optimizely-state.js`
 
 Run one known preview at 1366x768 and inspect individual checks and active IDs. Do not publish snapshots or screenshots to a personal repository.
+
+## Cookie consent behavior (current)
+
+The active QA test clicks the actual **Accept Cookies** / **Accept All Cookies** action, when present, in each isolated baseline and variation browser session. This deliberately models the opted-in experience. It then waits for page stability before collecting link inventory and screenshots. No CSS overlay masking is used in the active test; `overlay-evidence.js` is a legacy experiment and is not needed for this build. The run retains a **Before consent** screenshot and a post-consent **Original** screenshot. If the consent control is not shown, the report says so; review the screenshot if a banner remains or a consent UI uses unexpected wording. The cookie choice may affect analytics/event behavior and must be consistent for both experiences.
+
+Install/update: `dot-qa/cookie-consent.js`, `test/specs/dot-experiment.test.js`, and `dot-qa/run.js`. Do not alter `wdio.conf.js`.
