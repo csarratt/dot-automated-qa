@@ -102,3 +102,37 @@ Run one known preview at 1366x768 and inspect individual checks and active IDs. 
 The active QA test clicks the actual **Accept Cookies** / **Accept All Cookies** action, when present, in each isolated baseline and variation browser session. This deliberately models the opted-in experience. It then waits for page stability before collecting link inventory and screenshots. No CSS overlay masking is used in the active test; `overlay-evidence.js` is a legacy experiment and is not needed for this build. The run retains a **Before consent** screenshot and a post-consent **Original** screenshot. If the consent control is not shown, the report says so; review the screenshot if a banner remains or a consent UI uses unexpected wording. The cookie choice may affect analytics/event behavior and must be consistent for both experiences.
 
 Install/update: `dot-qa/cookie-consent.js`, `test/specs/dot-experiment.test.js`, and `dot-qa/run.js`. Do not alter `wdio.conf.js`.
+
+## Automatic Sauce Labs credential loading (current)
+
+The DOT runner now resolves Sauce credentials inside `dot-qa/run.js`, before launching WebdriverIO:
+- First, use both `SAUCE_USERNAME` and `SAUCE_ACCESS_KEY` if supplied by an approved environment/CI secret store.
+- Otherwise, on macOS, read generic-password entries from the user's default Keychain using `/usr/bin/security`. No credentials are written to source, the GitHub repository, or QA reports.
+- Keychain entries use account `$USER` and two distinct services: `DOT-QA-Sauce-Username` and `DOT-QA-Sauce-Access-Key`.
+
+### One-time setup (on approved work Mac)
+
+In a terminal, enter these commands **one at a time**. Each asks interactively for the value and does not put the value in terminal history or the shell process arguments:
+
+```bash
+security add-generic-password -a "$USER" -s 'DOT-QA-Sauce-Username' -U -w
+security add-generic-password -a "$USER" -s 'DOT-QA-Sauce-Access-Key' -U -w
+```
+
+When the first command prompts for the password, enter your **Sauce Labs username** (it is stored as a generic-password value); for the second, enter your **Sauce Labs access key**. Confirm prompts if requested. Never share either in chat.
+
+After installing both updated `dot-qa/run.js` and new `dot-qa/sauce-credentials.js`, verify without launching a browser:
+
+```bash
+node dot-qa/run.js --check-credentials
+```
+
+Expected: `Sauce Labs credentials available (macOS Keychain). Values not displayed.` If a macOS Keychain access dialog appears, review and approve only as permitted by company policy. Unattended scheduling requires an unlocked permitted Keychain and validated noninteractive access; if the machine locks or company policy restricts access, an approved runner/CI secret store will be needed. Do not use broad Keychain permissions such as `-A` or embed secrets in shell startup scripts.
+
+Continue normal test execution:
+
+```bash
+node dot-qa/run.js --url 'YOUR_OPTIMIZELY_PREVIEW_URL' --viewports 1366x768
+```
+
+Only the DOT runner's child processes receive the credentials. Direct manual `npx wdio` commands do not automatically use this fallback. Legacy documentation mentioning temporary terminal credentials is superseded by this section.
