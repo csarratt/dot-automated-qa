@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { requirePublicUsaaUrl, createBaselineUrl } = require('../../dot-qa/url');
-const { maskKnownOverlays, restoreKnownOverlays } = require('../../dot-qa/overlay-evidence');
+const { acceptCookies } = require('../../dot-qa/cookie-consent');
 const { inspectOptimizelyState } = require('../../dot-qa/optimizely-state');
 
 const mode = process.env.DOT_QA_MODE;
@@ -162,6 +162,18 @@ describe('DOT public-page experiment QA', () => {
       const readiness = await waitForRenderedPage();
       report.checks.renderReady = 'Passed';
       report.readiness = readiness;
+      // Preserve evidence before the consent interaction.
+      const initial = `${prefix}-before-consent.png`;
+      await browser.saveScreenshot(path.join(shots, initial));
+      report.screenshots.beforeConsent = `screenshots/${initial}`;
+      report.consent = await acceptCookies(browser);
+      report.checks.cookieConsent = report.consent.clicked
+        ? 'Accept Cookies selected'
+        : 'Not shown (review if banner remains)';
+      // Consent can change page layout or analytics behavior.
+      if (report.consent.clicked) {
+        await waitForRenderedPage();
+      }
       const page = await inspect();
       report.page = page;
       report.optimizely = await inspectOptimizelyState(browser);
@@ -181,26 +193,11 @@ describe('DOT public-page experiment QA', () => {
       report.checks.images = page.brokenImageCount ? 'Failed' : 'Passed';
       report.checks.overflow = page.horizontalOverflow > 2 ? 'Failed' : 'Passed';
       report.checks.links = page.links.some(link => link.issue) ? 'Needs review' : 'Passed';
-      // Preserve an untouched screenshot as evidence before cosmetic masking.
+      // Screenshot reflects the actual post-consent page, not hidden DOM elements.
       const top = `${prefix}-top.png`;
       await browser.saveScreenshot(path.join(shots, top));
       report.screenshots.top = `screenshots/${top}`;
-      report.screenshots.prepared = null;
-      let masked = [];
-      try {
-        masked = await maskKnownOverlays(browser);
-        if (masked.length) {
-          const prepared = `${prefix}-prepared.png`;
-          await browser.saveScreenshot(path.join(shots, prepared));
-          report.screenshots.prepared = `screenshots/${prepared}`;
-        }
-      } finally {
-        await restoreKnownOverlays(browser);
-      }
-      report.visualOverlaysMasked = masked;
-      report.notes.push(masked.length
-        ? 'Additional screenshot hides only identified consent/QA overlays; untouched screenshot is the evidence of actual page appearance'
-        : 'No supported overlay was safely identified for screenshot masking');
+      report.notes.push('Consent uses the actual Accept Cookies control when available; no masking or synthetic cookie changes were performed.');
       // A visible preview badge is indicative of preview UI, NOT proof the variation applied.
       report.checks.previewUiDetected = await browser.execute(() =>
         [...document.querySelectorAll('body *')].some(el => el.children.length === 0 &&
