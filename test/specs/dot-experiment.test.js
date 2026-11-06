@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { requirePublicUsaaUrl, createBaselineUrl } = require('../../dot-qa/url');
 const { maskKnownOverlays, restoreKnownOverlays } = require('../../dot-qa/overlay-evidence');
+const { inspectOptimizelyState } = require('../../dot-qa/optimizely-state');
 
 const mode = process.env.DOT_QA_MODE;
 const width = Number(process.env.DOT_QA_WIDTH);
@@ -163,6 +164,18 @@ describe('DOT public-page experiment QA', () => {
       report.readiness = readiness;
       const page = await inspect();
       report.page = page;
+      report.optimizely = await inspectOptimizelyState(browser);
+      const os = report.optimizely;
+      report.checks.optimizelySdk = os.sdkAvailable
+        ? 'Detected' : 'Not detected';
+      report.checks.activeExperimentCount = String(os.activeExperiments.length);
+      report.checks.activeCampaignCount = String(os.activeCampaigns.length);
+      report.checks.previewLayerMatch = mode === 'baseline'
+        ? 'Not applicable (disabled baseline)'
+        : !os.previewLayerIds.length ? 'Not determined (preview layer ID unavailable)'
+        : os.matchedPreviewLayer ? 'Active ID matched preview layer (review required)'
+        : 'Unconfirmed (no active ID matched preview layer)';
+      report.notes.push('Optimizely state inspection is read-only: it does not prove that variation changes executed or any metric fired.');
       report.checks.viewport = page.viewport.width === width && page.viewport.height === height ? 'Passed' : 'Failed';
       report.checks.page = page.ready && page.hasContent ? 'Passed' : 'Failed';
       report.checks.images = page.brokenImageCount ? 'Failed' : 'Passed';
