@@ -79,3 +79,7 @@ To install this change, update these files in the existing local project:
 - **New:** `dot-qa/overlay-evidence.js`
 
 Do not alter `wdio.conf.js`. Begin with a previously validated public or Runway preview, `1366x768`, then inspect the original/prepared screenshot links and check details. The updated code has not been exercised inside the USAA environment by the assistant. Consent controls, variation identity and metric/event firing are **not** validated by the screenshot preparation logic.
+
+## Reporting clarification
+
+Review screenshots remain the source of truth. The optional `Mask attempt` screenshot is a visual aid only; it is not verified to have concealed all cookie or Optimizely QA overlays. The HTML report starts collapsed, with individual checks and link differences expanded on demand. No automatic visual-diff or variation-applied assertion is made by this change.
