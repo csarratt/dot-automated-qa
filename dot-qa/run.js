@@ -21,29 +21,43 @@ function snapshot(root, name, mode, viewport) {
   catch { return { status: 'Not executed', checks: {}, page: null, screenshots: {}, notes: ['No result file'] }; }
 }
 function difference(before, after) {
-  if (!before.page || !after.page) return { status: 'Not tested', added: [], removed: [] };
-  const count = links => {
-    const result = new Map();
-    for (const item of links || []) {
-      const key = JSON.stringify([item.label, item.destination, item.issue]);
-      result.set(key, (result.get(key) || 0) + 1);
-    }
-    return result;
-  };
-  const a = count(before.page.links), b = count(after.page.links);
-  const added = [], removed = [];
-  const asFinding = key => {
-    const [label, destination, issue] = JSON.parse(key);
-    return { label, destination, issue };
-  };
-  for (const [key, n] of b) for (let i = 0; i < n - (a.get(key) || 0); i++) added.push(asFinding(key));
-  for (const [key, n] of a) for (let i = 0; i < n - (b.get(key) || 0); i++) removed.push(asFinding(key));
+  if (!before.page || !after.page) {
+    return { status: 'Not tested', added: [], removed: [], queryOnly: 0 };
+  }
+  const a = [...(before.page.links || [])];
+  const b = [...(after.page.links || [])];
+  const key = item => JSON.stringify([item.label, item.destination, item.issue]);
+  const noQuery = item => JSON.stringify([
+    item.label, (item.destination || '').replace(/\?\[query redacted\]$/, ''), item.issue
+  ]);
+  // First match exact entries, respecting duplicate counts.
+  const remainingA = [...a], remainingB = [];
+  for (const item of b) {
+    const i = remainingA.findIndex(x => key(x) === key(item));
+    if (i >= 0) remainingA.splice(i, 1);
+    else remainingB.push(item);
+  }
+  // Then separate differences caused solely by whether a query string exists.
+  const added = [], queryOnly = [];
+  for (const item of remainingB) {
+    const i = remainingA.findIndex(x => noQuery(x) === noQuery(item));
+    if (i >= 0) queryOnly.push({
+      label: item.label, destination: noQuery(item)
+    }), remainingA.splice(i, 1);
+    else added.push(item);
+  }
+  const removed = remainingA;
   return {
-    status: added.length || removed.length ? 'Needs review' : 'No differences detected',
-    addedCount: added.length, removedCount: removed.length,
-    added: added.slice(0, 50), removed: removed.slice(0, 50)
+    status: added.length || removed.length || queryOnly.length
+      ? 'Needs review' : 'No differences detected',
+    addedCount: added.length,
+    removedCount: removed.length,
+    queryOnlyCount: queryOnly.length,
+    added: added.slice(0, 50), removed: removed.slice(0, 50),
+    queryOnly: queryOnly.slice(0, 50)
   };
 }
+
 function report(root, viewports, runId) {
   const records = [];
   for (const viewport of viewports) for (const name of browsers) {
@@ -54,25 +68,41 @@ function report(root, viewports, runId) {
   }
   fs.writeFileSync(path.join(root,'report.json'),
     JSON.stringify({ runId, records }, null, 2), { mode: 0o600 });
+  const checks = s => {
+    const data = Object.entries(s.checks || {})
+      .map(([k,v]) => `<tr><td>${escape(k)}</td><td>${escape(v)}</td></tr>`).join('');
+    const notes = (s.notes || []).map(escape).join('<br>');
+    return `<details><summary>Check details</summary><table><tbody>${data}</tbody></table><p>${notes}</p></details>`;
+  };
   const rows = records.map(r => {
-    const screenshot = s => s.screenshots?.top ?
-      `<a href="${escape(s.screenshots.top)}">Top</a>` : 'Unavailable';
-    const example = [...r.links.added.map(i => 'Added: ' + i.label + ' -> ' + i.destination),
-      ...r.links.removed.map(i => 'Removed: ' + i.label + ' -> ' + i.destination)]
-      .slice(0, 8).map(escape).join('<br>') || 'None';
+    const screenshot = s => {
+      const links = [];
+      if (s.screenshots?.top) links.push(`<a href="${escape(s.screenshots.top)}">Original</a>`);
+      if (s.screenshots?.prepared) links.push(`<a href="${escape(s.screenshots.prepared)}">Prepared (overlays hidden)</a>`);
+      if (s.screenshots?.bottom) links.push(`<a href="${escape(s.screenshots.bottom)}">Bottom</a>`);
+      return links.join(' · ') || 'Unavailable';
+    };
+    const example = [
+      ...(r.links.added || []).map(i => 'Added: ' + i.label + ' -> ' + i.destination),
+      ...(r.links.removed || []).map(i => 'Removed: ' + i.label + ' -> ' + i.destination),
+      ...(r.links.queryOnly || []).map(i => 'Query presence differs: ' + i.label)
+    ].slice(0, 12).map(escape).join('<br>') || 'None';
+    const linkDescription = `${r.links.addedCount || 0} added, ${r.links.removedCount || 0} removed, ${r.links.queryOnlyCount || 0} query-only`;
     return `<tr><td>${escape(r.browser)}</td><td>${escape(r.viewport)}</td>` +
-      `<td>${escape(r.baseline.status)}</td><td>${escape(r.variation.status)}</td>` +
-      `<td>${escape(r.links.status)} (${r.links.addedCount || 0} added, ${r.links.removedCount || 0} removed)` +
-      `<details><summary>Examples</summary>${example}</details></td>` +
+      `<td>${escape(r.baseline.status)}${checks(r.baseline)}</td>` +
+      `<td>${escape(r.variation.status)}${checks(r.variation)}</td>` +
+      `<td>${escape(r.links.status)} (${escape(linkDescription)})` +
+      `<details><summary>Differences</summary>${example}</details></td>` +
       `<td>Baseline: ${screenshot(r.baseline)}<br>Variation: ${screenshot(r.variation)}</td></tr>`;
   }).join('\n');
+
   const html = `<!doctype html><html lang="en"><head><meta charset="UTF-8">` +
     `<meta name="viewport" content="width=device-width,initial-scale=1">` +
     `<title>DOT Experiment QA</title><style>body{font:15px system-ui,sans-serif;max-width:1400px;margin:30px auto;padding:0 18px;color:#20252a}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ddd;padding:12px;text-align:left;vertical-align:top}th{background:#f4f5f6}details{max-width:400px;overflow-wrap:anywhere}p{line-height:1.5}</style></head><body>` +
     `<h1>DOT Experiment QA</h1><p>Run ID: ${escape(runId)}</p>` +
-    `<p><strong>Review required:</strong> Screenshots and link changes are evidence, not automatic defect determinations. Variation identity, Optimizely metrics, JS/network errors, CTA interactions, visual regression, Runway authentication and mobile devices are NOT TESTED by this build.</p>` +
+    `<p><strong>Review required:</strong> Original screenshots are unmodified evidence. Prepared screenshots may conceal cookie/QA overlays only for easier visual review. Link differences are findings, not automatic defect determinations. Variation identity, Optimizely metrics, JS/network errors, CTA interactions, visual regression, Runway authentication and mobile devices are NOT TESTED by this build.</p>` +
     `<table><thead><tr><th>Browser</th><th>CSS viewport</th><th>Baseline</th><th>Variation</th><th>Link changes</th><th>Screenshots</th></tr></thead><tbody>${rows}</tbody></table>` +
-    `<p>Baseline uses optimizely_disable=true and independent remote sessions. Sanitized link comparisons omit query values and may miss changes. Keep all reports local and restricted.</p></body></html>`;
+    `<p>Baseline uses optimizely_disable=true and independent remote sessions. Sanitized link comparisons omit query values and may miss changes. Query-presence changes are separated to reduce false positives. No automatic pixel-level visual regression is performed. Keep all reports local and restricted.</p></body></html>`;
   fs.writeFileSync(path.join(root,'report.html'), html, { mode: 0o600 });
   return records;
 }
