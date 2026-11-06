@@ -83,3 +83,16 @@ Do not alter `wdio.conf.js`. Begin with a previously validated public or Runway 
 ## Reporting clarification
 
 Review screenshots remain the source of truth. The optional `Mask attempt` screenshot is a visual aid only; it is not verified to have concealed all cookie or Optimizely QA overlays. The HTML report starts collapsed, with individual checks and link differences expanded on demand. No automatic visual-diff or variation-applied assertion is made by this change.
+
+## Optimizely state diagnostics (November 2026)
+
+The new read-only `dot-qa/optimizely-state.js` helper inspects the documented Optimizely Web Experimentation state API after the page finishes rendering. It captures active experiment/campaign IDs and variation IDs (not names). The report includes counts and details, and attempts to compare active IDs with the URL's `optimizely_preview_layer_ids`. A match indicates a candidate active experiment/campaign and **does not prove visual variation changes were applied**. A non-match is inconclusive, especially when preview layers differ from experiment IDs or redirects stripped preview query parameters. The disabled baseline may have no Optimizely SDK.
+
+It **does not validate Optimizely metrics**: triggering events, event registration, pageview events and network transport have not been verified. Do not interpret an active variation mapping as conversion tracking.
+
+To install, copy:
+- updated `test/specs/dot-experiment.test.js`
+- updated `dot-qa/run.js`
+- new `dot-qa/optimizely-state.js`
+
+Run one known preview at 1366x768 and inspect individual checks and active IDs. Do not publish snapshots or screenshots to a personal repository.
