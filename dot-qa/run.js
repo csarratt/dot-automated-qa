@@ -98,7 +98,7 @@ function main() {
     const [w,h] = viewport.split('x');
     console.log(`Running ${mode} at ${viewport} in all configured browsers`);
     const result = spawnSync('npx', [
-      '--no-install','wdio','run','./dot-qa/wdio-environment.conf.js',
+      '--no-install','wdio','run','./dot-qa/wdio-environment.conf.mjs',
       '--spec','./test/specs/dot-experiment.test.js'
     ], {
       cwd: project,
