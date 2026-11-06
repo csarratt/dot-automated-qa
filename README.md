@@ -65,3 +65,17 @@ A QA pass does not certify an experiment for publication. Keep existing DOT peer
 ## Environment-aware execution
 
 For `https://www.usaa.com` the runner strips any old tunnel settings; for `https://rwww.usaa.com` it supplies the existing shared tunnel `usaa-stage-tunnel` and owner `usaa_admin` to each browser capability. This modifies only the in-memory WebdriverIO configuration, not your local `wdio.conf.js`. It does not bypass authentication or guarantee tunnel permission for other browsers. Use an approved Runway preview and review the actual screenshots. Do not print or share preview tokens.
+
+## Review-evidence update (November 2026)
+
+After the page-ready wait succeeds, the test now stores an **untouched top screenshot** as evidence. If the cookie consent banner or Optimizely QA welcome panel is confidently recognized, it also creates a **prepared screenshot** that hides the identified overlay *for that image only*, without clicking or accepting consent. Actual validations and the authoritative screenshot remain unmodified. The prepared view may not be available if the element cannot be safely identified.
+
+The report includes expandable per-browser checks and separates URL query-*presence* changes from link additions/removals. It still deliberately redacts all query values, including Optimizely preview tokens.
+
+To install this change, update these files in the existing local project:
+
+- `dot-qa/run.js`
+- `test/specs/dot-experiment.test.js`
+- **New:** `dot-qa/overlay-evidence.js`
+
+Do not alter `wdio.conf.js`. Begin with a previously validated public or Runway preview, `1366x768`, then inspect the original/prepared screenshot links and check details. The updated code has not been exercised inside the USAA environment by the assistant. Consent controls, variation identity and metric/event firing are **not** validated by the screenshot preparation logic.
