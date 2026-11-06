@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { requirePublicUsaaUrl, createBaselineUrl } = require('../../dot-qa/url');
+const { maskKnownOverlays, restoreKnownOverlays } = require('../../dot-qa/overlay-evidence');
 
 const mode = process.env.DOT_QA_MODE;
 const width = Number(process.env.DOT_QA_WIDTH);
@@ -167,9 +168,31 @@ describe('DOT public-page experiment QA', () => {
       report.checks.images = page.brokenImageCount ? 'Failed' : 'Passed';
       report.checks.overflow = page.horizontalOverflow > 2 ? 'Failed' : 'Passed';
       report.checks.links = page.links.some(link => link.issue) ? 'Needs review' : 'Passed';
+      // Preserve an untouched screenshot as evidence before cosmetic masking.
       const top = `${prefix}-top.png`;
       await browser.saveScreenshot(path.join(shots, top));
       report.screenshots.top = `screenshots/${top}`;
+      report.screenshots.prepared = null;
+      let masked = [];
+      try {
+        masked = await maskKnownOverlays(browser);
+        if (masked.length) {
+          const prepared = `${prefix}-prepared.png`;
+          await browser.saveScreenshot(path.join(shots, prepared));
+          report.screenshots.prepared = `screenshots/${prepared}`;
+        }
+      } finally {
+        await restoreKnownOverlays(browser);
+      }
+      report.visualOverlaysMasked = masked;
+      report.notes.push(masked.length
+        ? 'Additional screenshot hides only identified consent/QA overlays; untouched screenshot is the evidence of actual page appearance'
+        : 'No supported overlay was safely identified for screenshot masking');
+      // A visible preview badge is indicative of preview UI, NOT proof the variation applied.
+      report.checks.previewUiDetected = await browser.execute(() =>
+        [...document.querySelectorAll('body *')].some(el => el.children.length === 0 &&
+          /welcome to optimizely qa/i.test(el.textContent || ''))
+      ) ? 'Detected (not variation verified)' : 'Not detected';
       const maxScroll = await browser.execute(() =>
         document.documentElement.scrollHeight - window.innerHeight);
       if (maxScroll > 2) {
