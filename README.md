@@ -7,7 +7,7 @@ This private repository contains **generic, public-and-Runway-page** WebdriverIO
 ## Contents
 
 - `dot-qa/url.js` validates approved USAA public and Runway URLs and derives an `optimizely_disable=true` baseline.
-- `dot-qa/wdio-environment.conf.js` uses the existing local four-browser configuration, automatically selecting the shared staging tunnel for rwww and no tunnel for www.\n- `dot-qa/run.js` runs all browsers configured in your existing WebdriverIO project, once for each baseline/variation and target viewport. It generates a **local** HTML report.
+- `dot-qa/wdio-environment.conf.mjs` uses the existing local four-browser configuration, automatically selecting the shared staging tunnel for rwww and no tunnel for www.\n- `dot-qa/run.js` runs all browsers configured in your existing WebdriverIO project, once for each baseline/variation and target viewport. It generates a **local** HTML report.
 - `test/specs/dot-experiment.test.js` gathers page, viewport, images, scrolling, link inventory, and screenshot evidence.
 - `.gitignore` blocks common secrets, dependencies and local QA outputs.
 
