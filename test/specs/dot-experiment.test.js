@@ -54,12 +54,12 @@ async function waitForRenderedPage() {
       )].filter(visible).filter(el =>
         el.getAttribute('role') === 'progressbar' ||
         el.getAttribute('aria-busy') === 'true' ||
-        /^(loading|please wait)(\\.{0,3})?$/i.test(
+        /^(loading|please wait)(\.{0,3})?$/i.test(
           (el.getAttribute('aria-label') || el.innerText || '').trim()
         )
       );
       const loaderOnly = !headings.length &&
-        /^(loading|please wait)(\\.{0,3})?$/i.test(bodyText.slice(0, 50));
+        /^(loading|please wait)(\.{0,3})?$/i.test(bodyText.slice(0, 50));
       return {
         complete: document.readyState === 'complete',
         hasHeading: headings.length > 0,
