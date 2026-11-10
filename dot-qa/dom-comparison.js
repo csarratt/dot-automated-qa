@@ -62,12 +62,11 @@ function compareDomInventories(before, after) {
   }
   const structuralShifts=[...buckets.values()].filter(group=>group.elementCount>=5)
     .sort((a,b)=>b.elementCount-a.elementCount);
+  const grouped=new Set(structuralShifts.map(g=>g.displacementY));
   for(const group of structuralShifts){
     group.displacementY=Math.round(group.totalY/group.elementCount);
     delete group.totalY;
   }
-  const grouped=new Set([...buckets.values()].filter(g=>g.elementCount>=5)
-    .map(g=>Math.round(g.displacementY/4)*4));
   const ungrouped=moved.filter(entry=>
     !(entry.dx<=4 && entry.dw<=4 && entry.dh<=4 && entry.dy>=48 &&
       grouped.has(Math.round(entry.signedDy/4)*4)));
