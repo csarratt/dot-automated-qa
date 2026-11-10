@@ -243,7 +243,18 @@ describe('DOT public-page experiment QA', () => {
       }
       if (report.status === 'Failed') throw new Error('Core page validation failed');
     } catch (error) {
-      report.status = 'Failed';
+      // Remote-session termination is an infrastructure interruption, not
+      // evidence that the website or experiment failed a QA assertion.
+      const message = String(error.message || 'Unknown failure');
+      const sessionUnavailable =
+        /session.*(?:already finished|no such session|invalid session id|terminated|does not exist|deleted|closed)/i.test(message) ||
+        /(?:session.*(?:can't|cannot) receive further commands)/i.test(message);
+      report.status = sessionUnavailable ? 'Blocked' : 'Failed';
+      if (sessionUnavailable) {
+        report.executionErrorKind = 'REMOTE_SESSION_UNAVAILABLE';
+        if (!report.checks.fullPageCoverage)
+          report.checks.fullPageCoverage = 'Blocked';
+      }
       report.notes.push(String(error.message || 'Unknown failure')
         .replace(/https?:\/\/[^\s"'<>]+/g, '[URL redacted]').slice(0, 300));
       throw error;
