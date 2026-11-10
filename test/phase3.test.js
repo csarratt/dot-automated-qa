@@ -3,6 +3,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { compareDomInventories } = require('../dot-qa/dom-comparison');
 const { makeMatrix, aggregate } = require('../dot-qa/result-engine');
+const { makePackage } = require('../dot-qa/report-package');
+const fs=require('node:fs');
+const os=require('node:os');
+const path=require('node:path');
 
 const item=(kind,tag,label,x=0,y=0,width=160,height=40)=>
   ({kind,tag,label,geometry:{x,y,width,height}});
@@ -51,4 +55,30 @@ test('semantic DOM comparison passing does not certify intended variation',()=>{
   assert.equal(cases[1].checks.find(x=>x.id==='domComparison').status,'PASS');
   assert.equal(cases[1].checks.find(x=>x.id==='expectedDomChanges').status,'NOT_TESTED');
   assert.equal(aggregate(cases).status,'REVIEW_REQUIRED');
+});
+
+test('report groups not-tested checks and displays DOM findings separately',()=>{
+  const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'dot-phase3-'));
+  try {
+    const rec=[{browser:'chrome',viewport:'1366x768',
+      baseline:{status:'Passed with review',page:{},checks:{domInventory:'Passed'}},
+      variation:{status:'Passed with review',page:{},checks:{
+        domInventory:'Passed',domComparison:'Passed',responsiveLayout:'Needs review',
+        variationIdentity:'Active variation assignment detected (expected identity not supplied)'
+      },responsive:{findings:[{code:'INTERACTIVE_OUTSIDE_VIEWPORT',
+        label:'Apply',x:1400,y:220}]}},
+      domComparison:{status:'COMPARED',counts:{added:1,removed:0,repositioned:0},
+        changes:[{type:'added',kind:'heading',label:'Special offer',count:1}]}
+    }];
+    const pkg=makePackage(tmp,rec,'unit-phase3');
+    const html=fs.readFileSync(path.join(pkg.root,'index.html'),'utf8');
+    assert(html.includes('Actionable findings'));
+    assert(html.includes('Coverage not implemented'));
+    assert(html.includes('DOM and responsive comparisons'));
+    assert(html.includes('Special offer'));
+    assert(html.includes('INTERACTIVE_OUTSIDE_VIEWPORT'));
+    const results=JSON.parse(fs.readFileSync(path.join(pkg.root,'results.json'),'utf8'));
+    assert.equal(results.domComparisons[0].comparison.counts.added,1);
+    assert.equal(results.qaPassed,false);
+  } finally { fs.rmSync(tmp,{recursive:true,force:true}); }
 });
