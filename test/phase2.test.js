@@ -1,0 +1,89 @@
+'use strict';
+const assert = require('node:assert/strict');
+const test = require('node:test');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { registry } = require('../dot-qa/check-registry');
+const { makeMatrix, aggregate, normalizeCheck, validateContract } = require('../dot-qa/result-engine');
+const { makePackage } = require('../dot-qa/report-package');
+
+const snapshot = (mode, checks, status='Passed with review') => ({
+  status, page:{viewport:{width:1366,height:768},links:[]}, checks,
+  screenshots:{}
+});
+const pair = (base,variation) => [{
+  browser:'chrome',viewport:'1366x768',baseline:base,variation
+}];
+const checks = {
+  renderReady:'Passed', viewport:'Passed', page:'Passed',
+  images:'Passed', overflow:'Passed', scrolling:'Passed',
+  cookieConsent:'Accept Cookies selected',links:'Passed'
+};
+
+test('registry IDs remain unique', () => {
+  assert.equal(new Set(registry.map(x=>x.id)).size,registry.length);
+});
+test('unfinished mandatory checks prevent a misleading PASS', () => {
+  const cases = makeMatrix(pair(snapshot('baseline',checks),snapshot('variation',{
+    ...checks,variationIdentity:'Active variation assignment detected (expected identity not supplied)'
+  })));
+  const result = aggregate(cases);
+  assert.equal(result.status,'REVIEW_REQUIRED');
+  assert.equal(result.passed,false);
+  assert(result.counts.NOT_TESTED>0);
+  validateContract(cases,result);
+});
+test('expected variation mismatch is FAIL', () => {
+  const cases = makeMatrix(pair(snapshot('baseline',checks),snapshot('variation',{
+    ...checks,variationIdentity:'Mismatch (expected variation not active or in holdback)'
+  })));
+  assert.equal(aggregate(cases).status,'FAIL');
+});
+test('missing remote browser result blocks completion', () => {
+  const cases = makeMatrix(pair(snapshot('baseline',checks),{
+    status:'Not executed',checks:{},page:null
+  }));
+  assert.equal(aggregate(cases).status,'BLOCKED');
+});
+test('failed browser execution overrides missing check details', () => {
+  const cases = makeMatrix(pair(snapshot('baseline',checks),
+    snapshot('variation',{},'Failed')));
+  assert.equal(aggregate(cases).status,'FAIL');
+});
+test('review and exception mappings are explicit', () => {
+  assert.equal(normalizeCheck('cookieConsent','Not shown (review if banner remains)','baseline'),'REVIEW_REQUIRED');
+  assert.equal(normalizeCheck('variationIdentity','Expected experiment and variation active (DOM not verified)','variation'),'PASS');
+  assert.equal(normalizeCheck('variationIdentity','Active variation assignment detected (expected identity not supplied)','variation'),'REVIEW_REQUIRED');
+  assert.equal(normalizeCheck('scrolling','Not applicable','baseline'),'PASS');
+});
+test('profile-specific checks require explicit scope', () => {
+  const ordinary = makeMatrix(pair(snapshot('baseline',checks),snapshot('variation',checks)));
+  const spa = makeMatrix(pair(snapshot('baseline',checks),snapshot('variation',checks)),{spa:true});
+  assert.equal(ordinary[1].checks.find(x=>x.id==='spaLifecycle').status,'NOT_APPLICABLE');
+  assert.equal(spa[1].checks.find(x=>x.id==='spaLifecycle').status,'NOT_TESTED');
+});
+test('report package is self-contained and SharePoint has correct fail-closed status', () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(),'dot-qa-phase2-'));
+  try {
+    const root = path.join(temp,'run');
+    fs.mkdirSync(path.join(root,'screenshots'),{recursive:true});
+    fs.writeFileSync(path.join(root,'screenshots','chrome-variation-1366x768-top.png'),'fake-image');
+    const records = pair(snapshot('baseline',checks),snapshot('variation',{
+      ...checks,variationIdentity:'Active variation assignment detected (expected identity not supplied)'
+    }));
+    records[0].variation.screenshots.top='screenshots/chrome-variation-1366x768-top.png';
+    const output = makePackage(root,records,'test-run-123');
+    assert.equal(output.summary.status,'REVIEW_REQUIRED');
+    const sharepoint = JSON.parse(fs.readFileSync(path.join(output.root,'sharepoint-result.json'),'utf8'));
+    assert.equal(sharepoint.qaPassed,false);
+    assert.equal(sharepoint.published,false);
+    assert.equal(sharepoint.boxReportUrl,null);
+    const manifest = JSON.parse(fs.readFileSync(path.join(output.root,'manifest.json'),'utf8'));
+    assert(manifest.files.some(x=>x.path==='screenshots/chrome-variation-1366x768-top.png'));
+    assert(fs.readFileSync(path.join(output.root,'index.html'),'utf8').includes('REVIEW_REQUIRED'));
+    assert(!fs.readFileSync(path.join(output.root,'results.json'),'utf8').includes('YOUR_PREVIEW_URL'));
+  } finally {
+    fs.rmSync(temp,{recursive:true,force:true});
+  }
+});
