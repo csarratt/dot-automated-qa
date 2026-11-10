@@ -16,7 +16,7 @@ async function inspectResponsiveLayout(browser) {
         width:Math.round(rect.width),height:Math.round(rect.height),detail});
     };
     const width=innerWidth;
-    const root=document.querySelector('main,[role="main"]')||document.body;
+    const root=document.body;
     const elements=[...root.querySelectorAll('button,a[href],input,select,textarea,[role="button"]')];
     const visible = el => {
       const style=getComputedStyle(el), rect=el.getBoundingClientRect();
@@ -82,7 +82,7 @@ async function inspectResponsiveLayout(browser) {
     return {
       version:1,viewport:{width:innerWidth,height:innerHeight},
       examined,truncated:allVisible.length>600,
-      findings,classification:findings.length?'REVIEW_REQUIRED':'PASS',
+      findings,classification:findings.length||allVisible.length>600?'REVIEW_REQUIRED':'PASS',
       limitations:['Offscreen slides and conditional UI are not treated as confirmed failures',
         'Clipping and overlap findings are conservative candidates, not confirmed defects',
         'This is a static DOM geometry scan, not a real touch-device test']
