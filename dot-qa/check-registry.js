@@ -12,6 +12,8 @@ const registry = Object.freeze([
   { id:'cookieConsent', title:'Consent flow', category:'Functionality', severity:'high', required:true, scope:'both', implementation:'implemented' },
   { id:'links', title:'Link inventory syntax', category:'Functionality', severity:'medium', required:true, scope:'both', implementation:'implemented' },
   { id:'variationIdentity', title:'Expected Optimizely variation assignment', category:'Optimizely', severity:'critical', required:true, scope:'variation', implementation:'partial' },
+  { id:'domInventory', title:'Visible DOM inventory captured', category:'Visual', severity:'medium', required:true, scope:'both', implementation:'implemented' },
+  { id:'domComparison', title:'Baseline-versus-variation DOM compared', category:'Visual', severity:'medium', required:true, scope:'variation', implementation:'implemented' },
   { id:'expectedDomChanges', title:'Expected variation DOM assertions', category:'Optimizely', severity:'critical', required:true, scope:'variation', implementation:'planned' },
   { id:'targeting', title:'Audience/page targeting and exclusions', category:'Optimizely', severity:'critical', required:true, scope:'variation', implementation:'planned' },
   { id:'optimizelyMetrics', title:'Optimizely event and metric verification', category:'Tracking', severity:'critical', required:true, scope:'variation', implementation:'planned' },
