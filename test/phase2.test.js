@@ -84,12 +84,17 @@ test('report package is self-contained and SharePoint has correct fail-closed st
     const records = pair(snapshot('baseline',checks),snapshot('variation',{
       ...checks,variationIdentity:'Active variation assignment detected (expected identity not supplied)'
     }));
+    records[0].baseline.checks.fullPageCoverage='Passed';
     records[0].variation.screenshots.top='screenshots/chrome-variation-1366x768-top.png';
     records[0].variation.sauceJobId='abcdef1234567890';
     records[0].variation.videoWalkthrough = {complete:true,steps:9};
     records[0].variation.checks.fullPageCoverage='Passed';
     const output = makePackage(root,records,'test-run-123');
-    assert.equal(output.summary.status,'REVIEW_REQUIRED');
+    assert.equal(output.summary.status,'REVIEW_REQUIRED',
+      'Unexpected status: '+JSON.stringify({
+        executions: makeMatrix(records).map(x=>({browser:x.browser,mode:x.mode,status:x.executionStatus})),
+        blocked:output.summary.findings.filter(x=>x.status==='BLOCKED')
+      }));
     const sharepoint = JSON.parse(fs.readFileSync(path.join(output.root,'sharepoint-result.json'),'utf8'));
     assert.equal(sharepoint.qaPassed,false);
     assert.equal(sharepoint.published,false);
