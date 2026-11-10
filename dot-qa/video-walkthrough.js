@@ -4,9 +4,9 @@
 // the existing Sauce Labs session. Sauce Labs records the session video.
 // No images are generated; the recording remains a remote job asset.
 async function recordPageWalkthrough(browser, options = {}) {
-  const maxSteps = options.maxSteps || 120;
-  const intervalMs = options.intervalMs || 650;
-  const pauseMs = options.pauseMs || 450;
+  const maxSteps = options.maxSteps || 65;
+  const intervalMs = options.intervalMs || 400;
+  const pauseMs = options.pauseMs || 300;
   const start = await browser.execute(() => {
     window.scrollTo({top:0,left:0,behavior:'instant'});
     return {
@@ -15,12 +15,12 @@ async function recordPageWalkthrough(browser, options = {}) {
     };
   });
   if(start.viewport < 300) throw new Error('Viewport too small for page walk-through');
-  await browser.pause(1300); // Opening view, visible in recording.
+  await browser.pause(800); // Opening view, visible in recording.
   let current = 0;
   let steps = 0;
   let completed = false;
   let reason = null;
-  const stepSize = Math.max(120,Math.floor(start.viewport * .65));
+  const stepSize = Math.max(120,Math.floor(start.viewport * .8));
   for(;steps < maxSteps;steps++) {
     const state = await browser.execute(y => {
       const doc = document.documentElement;
@@ -43,7 +43,7 @@ async function recordPageWalkthrough(browser, options = {}) {
     const bottomReached = actual.y + actual.viewport >= actual.height - 3;
     if(bottomReached) {
       completed=true;
-      await browser.pause(1300); // Footer, visible in recording.
+      // Avoid issuing an additional remote command after completing the walk-through.
       break;
     }
     // Scroll according to actual position in case the page expanded.
