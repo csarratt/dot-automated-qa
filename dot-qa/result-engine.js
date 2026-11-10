@@ -32,11 +32,12 @@ function makeMatrix(records, profile = {}) {
     for (const mode of ['baseline','variation']) {
       const snap = record[mode] || {};
       const missing = snap.status === 'Not executed' || !snap.page;
+      const interrupted = snap.status === 'Blocked' || snap.executionErrorKind === 'REMOTE_SESSION_UNAVAILABLE';
       const checks = registry.map(item => {
         const applicable = applies(item, mode, profile);
         const value = (snap.checks || {})[item.id];
         const status = !applicable ? 'NOT_APPLICABLE'
-          : missing ? 'BLOCKED'
+          : missing || (interrupted && !value) ? 'BLOCKED'
           : normalizeCheck(item.id, value, mode);
         return {
           id:item.id,title:item.title,category:item.category,severity:item.severity,
@@ -46,7 +47,7 @@ function makeMatrix(records, profile = {}) {
       });
       cases.push({
         browser:record.browser,viewport:record.viewport,mode,
-        executionStatus:missing ? 'BLOCKED' : snap.status === 'Failed' ? 'FAIL' : 'COMPLETED',
+        executionStatus:missing || interrupted ? 'BLOCKED' : snap.status === 'Failed' ? 'FAIL' : 'COMPLETED',
         checks
       });
     }
@@ -69,6 +70,11 @@ function aggregate(cases) {
     incomplete || !relevant.length ? 'REVIEW_REQUIRED' : 'PASS';
   const findings = [];
   for (const c of cases) {
+    if (c.executionStatus === 'BLOCKED') findings.push({
+      browser:c.browser, viewport:c.viewport, mode:c.mode,
+      id:'executionBlocked', title:'Browser QA session interrupted', severity:'critical',
+      status:'BLOCKED', detail:'Remote session or required execution was unavailable; this is not a confirmed website defect'
+    });
     if (c.executionStatus === 'FAIL') findings.push({
       browser:c.browser, viewport:c.viewport, mode:c.mode,
       id:'executionFailure', title:'Browser QA test failed', severity:'critical',
