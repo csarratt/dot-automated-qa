@@ -61,6 +61,14 @@ function makePackage(runRoot, records, runId, opts = {}) {
     cases,
     findings:summary.findings,
     screenshots:screenshotEvidence,
+    domComparisons:records.map(r=>({
+      browser:r.browser,viewport:r.viewport,
+      comparison:r.domComparison||{status:'NOT_TESTED'}
+    })),
+    responsiveFindings:records.flatMap(r=>['baseline','variation'].flatMap(mode=>
+      (r[mode]?.responsive?.findings||[]).map(issue=>({
+        browser:r.browser,viewport:r.viewport,mode,...issue
+      })))),
     videoSessions:records.flatMap(r=>['baseline','variation'].map(mode=>({
       browser:r.browser,viewport:r.viewport,mode,
       jobId:r[mode]?.sauceJobId || null,
@@ -98,10 +106,53 @@ function makePackage(runRoot, records, runId, opts = {}) {
   write('results.json',payload);
   write('sharepoint-result.json',sharepoint);
 
-  const summaryTable = summary.findings.slice(0,200).map(x =>
-    '<tr><td>'+esc(x.status)+'</td><td>'+esc(x.severity)+'</td><td>'+
-    esc(x.title)+'</td><td>'+esc(x.browser)+' / '+esc(x.viewport)+' / '+
-    esc(x.mode)+'</td><td>'+esc(x.detail)+'</td></tr>').join('');
+  const actionable=summary.findings.filter(x=>x.status!=='NOT_TESTED');
+  const deferred=summary.findings.filter(x=>x.status==='NOT_TESTED');
+  const byKey=(rows)=>[...rows.reduce((map,x)=>{
+    const key=x.id+'|'+x.status+'|'+x.severity;
+    const existing=map.get(key);
+    if(existing) {existing.count++;if(existing.examples.length<4)
+      existing.examples.push(x.browser+' / '+x.viewport+' / '+x.mode);}
+    else map.set(key,{id:x.id,title:x.title,status:x.status,
+      severity:x.severity,count:1,examples:[x.browser+' / '+x.viewport+' / '+x.mode]});
+    return map;
+  },new Map()).values()];
+  const activeGroups=byKey(actionable);
+  const gapGroups=byKey(deferred);
+  const groupRows=groups=>groups.map(x=>
+    '<tr><td>'+esc(x.status)+'</td><td>'+esc(x.severity)+
+    '</td><td>'+esc(x.title)+'</td><td>'+x.count+
+    '</td><td>'+esc(x.examples.join('; '))+(x.count>x.examples.length?' ...':'')+
+    '</td></tr>').join('');
+  const groupedTable=(groups,empty)=>'<table><thead><tr><th>Status</th>'+
+    '<th>Severity</th><th>Check</th><th>Occurrences</th><th>Examples</th></tr>'+
+    '</thead><tbody>'+(groupRows(groups)||'<tr><td colspan="5">'+esc(empty)+
+    '</td></tr>')+'</tbody></table>';
+  const comparisons=records.map(r=>{
+    const result=r.domComparison||{};
+    const counts=result.counts||{};
+    const changes=(result.changes||[]).slice(0,70);
+    const items=changes.map(x=>'<tr><td>'+esc(x.type)+'</td><td>'+
+      esc(x.kind)+'</td><td>'+esc(x.label)+'</td><td>'+
+      esc(x.count||([x.dx,x.dy,x.dw,x.dh].join('/')))+
+      '</td></tr>').join('');
+    const responsive=['baseline','variation'].flatMap(mode=>
+      (r[mode]?.responsive?.findings||[]).map(x=>({mode,...x})));
+    return '<details><summary>'+esc(r.browser)+' · '+esc(r.viewport)+
+      ' · '+esc(result.status||'NOT_TESTED')+'</summary>'+
+      '<p>Added '+(counts.added||0)+' · Removed '+(counts.removed||0)+
+      ' · Repositioned '+(counts.repositioned||0)+
+      ' · Responsive candidates '+responsive.length+'</p>'+
+      '<p class="muted">Changes require interpretation; they are not automatically defects. Dynamic content may change independently of Optimizely.</p>'+
+      (items?'<table><thead><tr><th>Change</th><th>Type</th><th>Label</th><th>Count / position delta</th></tr></thead><tbody>'+
+        items+'</tbody></table>':'<p>No semantic/geometry changes in collected elements.</p>')+
+      (responsive.length?'<h4>Responsive layout candidates</h4><table><thead><tr>'+
+        '<th>Experience</th><th>Issue</th><th>Element</th><th>Position</th></tr></thead><tbody>'+
+        responsive.slice(0,40).map(x=>'<tr><td>'+esc(x.mode)+'</td><td>'+
+        esc(x.code)+'</td><td>'+esc(x.label)+'</td><td>'+
+        esc(x.x)+', '+esc(x.y)+'</td></tr>').join('')+
+        '</tbody></table>':'')+'</details>';
+  }).join('');
   const matrix = cases.map(c =>
     '<details><summary>'+esc(c.browser)+' · '+esc(c.viewport)+' · '+
     esc(c.mode)+' ('+esc(c.executionStatus)+')</summary><table><thead><tr>'+
@@ -148,11 +199,12 @@ function makePackage(runRoot, records, runId, opts = {}) {
     ' · '+summary.requiredPassed+' / '+summary.requiredCount+' mandatory checks passed</p>'+
     '<p><strong>Decision rule:</strong> FAIL overrides BLOCKED; BLOCKED overrides REVIEW REQUIRED; only a fully complete mandatory suite can PASS. NOT TESTED is never a pass.</p>'+
     '<h2>Video walkthroughs</h2>'+gallery+
-    '<h2>Mandatory findings ('+summary.findings.length+')</h2>'+
-    '<table><thead><tr><th>Status</th><th>Severity</th><th>Check</th><th>Browser/viewport/mode</th><th>Evidence</th></tr></thead><tbody>'+
-    (summaryTable || '<tr><td colspan="5">No unresolved mandatory findings</td></tr>')+
-    '</tbody></table>'+
-    (summary.findings.length>200?'<p>Additional findings appear in results.json.</p>':'')+
+    '<h2>Actionable findings ('+actionable.length+')</h2>'+
+    groupedTable(activeGroups,'No actionable findings detected by the implemented checks')+
+    '<h2>DOM and responsive comparisons</h2>'+comparisons+
+    '<details><summary>Coverage not implemented ('+deferred.length+' results)</summary>'+
+    '<p class="muted">These are required checks awaiting future implementation, not newly discovered website defects. They prevent an overall PASS.</p>'+
+    groupedTable(gapGroups,'No missing mandatory coverage')+'</details>'+
     '<h2>Browser and viewport matrix</h2>'+matrix+
     '<p class="muted">Sauce Labs videos are not included in this package. Remote links require appropriate account access and are subject to asset retention. No Box or SharePoint upload was performed. The legacy report.html remains available.</p>'+
     '</body></html>';
