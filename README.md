@@ -216,3 +216,21 @@ Install only these updated/new files:
 - **Updated:** `test/phase2.test.js`
 
 No change required to `dot-qa/run.js` for this update. Run `node --test test/phase2.test.js` first, then execute one 1366x768 preview with the existing `node dot-qa/run.js --url ...` command. Open `package/index.html`, expand **Full page review**, and verify both experiences reach the footer. Results remain local; no Box/SharePoint upload is performed.
+
+## Sauce Labs video walkthroughs (current, replaces page sections)
+
+Rather than creating dozens of screenshots, each baseline/variation job now records a slow controlled scroll from top through the footer after cookie acceptance. The Sauce desktop job's video capture is explicitly enabled in `dot-qa/wdio-environment.conf.mjs`. The browser test stores only a Sauce session/job ID, then the portable report creates protected links to Sauce Labs Test Details, where authorized users can watch/download the recording. Availability of the actual Sauce video asset is **not yet verified** by the runner. The recorded video includes the surrounding test session, not only the scroll.
+
+The suite retains just the before-consent, post-consent top and bottom evidence images for diagnostics, but does not create section PNGs. The former `dot-qa/page-sections.js` file can remain on disk but is no longer imported. The report shows baseline and variation recording links in an expandable list grouped by browser/viewport. `fullPageCoverage` now means the automated scroll reached the end; it does not prove recording exists, the screen rendered correctly, or the expected visual changes are correct. Visual regression stays NOT_TESTED.
+
+The `package/` folder contains remote job references but **does not yet contain downloaded video files**. Sauce Labs test assets are typically retained for 30 days and access depends on team/account visibility. For enduring Box archives, a later authorized integration must securely download and validate MP4 assets through the Sauce Jobs API, scan/redact sensitive imagery where required, update the package manifest and upload them to approved storage. We will not set Sauce jobs public to make their links work.
+
+Install these files into the existing work project:
+- New: `dot-qa/video-walkthrough.js`
+- Updated: `dot-qa/wdio-environment.conf.mjs`
+- Updated: `test/specs/dot-experiment.test.js`
+- Updated: `dot-qa/report-package.js`
+- Updated: `dot-qa/check-registry.js`
+- Updated: `test/phase2.test.js`
+
+Run `node --test test/phase2.test.js` and then one standard run with `node dot-qa/run.js --url 'YOUR_PREVIEW_URL' --viewports 1366x768`. Open `package/index.html` and verify the links open the proper Sauce Labs job with the video tab and the expected scrolling behavior. Do not transfer sensitive job recordings to personal repositories.
