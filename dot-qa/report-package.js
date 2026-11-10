@@ -158,13 +158,13 @@ function makePackage(runRoot, records, runId, opts = {}) {
     '<p class="muted">Execution '+esc(runId)+' · '+esc(payload.createdAt)+
     ' · '+summary.requiredPassed+' / '+summary.requiredCount+' mandatory checks passed</p>'+
     '<p><strong>Decision rule:</strong> FAIL overrides BLOCKED; BLOCKED overrides REVIEW REQUIRED; only a fully complete mandatory suite can PASS. NOT TESTED is never a pass.</p>'+
+    '<h2>Full page review</h2>'+gallery+
     '<h2>Mandatory findings ('+summary.findings.length+')</h2>'+
     '<table><thead><tr><th>Status</th><th>Severity</th><th>Check</th><th>Browser/viewport/mode</th><th>Evidence</th></tr></thead><tbody>'+
     (summaryTable || '<tr><td colspan="5">No unresolved mandatory findings</td></tr>')+
     '</tbody></table>'+
     (summary.findings.length>200?'<p>Additional findings appear in results.json.</p>':'')+
     '<h2>Browser and viewport matrix</h2>'+matrix+
-    '<h2>Entire page screenshots: baseline vs variation</h2>'+gallery+
     '<p class="muted">Screenshots are linked relatively and may contain confidential material. No files were uploaded to Box or SharePoint. Do not share without approval. The old report.html is retained for compatibility.</p>'+
     '</body></html>';
   fs.writeFileSync(path.join(out,'index.html'),html,{mode:0o600});
