@@ -131,6 +131,13 @@ function makePackage(runRoot, records, runId, opts = {}) {
   const comparisons=records.map(r=>{
     const result=r.domComparison||{};
     const counts=result.counts||{};
+    const shifts=result.structuralShifts||[];
+    const shiftsHtml=shifts.map(s=>'<p><strong>Structural shift:</strong> '+
+      esc(s.elementCount)+' downstream elements moved '+
+      esc(Math.abs(s.displacementY))+' pixels '+
+      (s.displacementY<0?'upward':'downward')+
+      ' (approximately). Examples: '+esc(s.examples.join('; '))+
+      '. Confirm intended change before approving.</p>').join('');
     const changes=(result.changes||[]).slice(0,70);
     const items=changes.map(x=>'<tr><td>'+esc(x.type)+'</td><td>'+
       esc(x.kind)+'</td><td>'+esc(x.label)+'</td><td>'+
@@ -142,7 +149,8 @@ function makePackage(runRoot, records, runId, opts = {}) {
       ' · '+esc(result.status||'NOT_TESTED')+'</summary>'+
       '<p>Added '+(counts.added||0)+' · Removed '+(counts.removed||0)+
       ' · Repositioned '+(counts.repositioned||0)+
-      ' · Responsive candidates '+responsive.length+'</p>'+
+      ' (grouped into '+shifts.length+' shared shifts where applicable)'+
+      ' · Responsive candidates '+responsive.length+'</p>'+shiftsHtml+
       '<p class="muted">Changes require interpretation; they are not automatically defects. Dynamic content may change independently of Optimizely.</p>'+
       (items?'<table><thead><tr><th>Change</th><th>Type</th><th>Label</th><th>Count / position delta</th></tr></thead><tbody>'+
         items+'</tbody></table>':'<p>No semantic/geometry changes in collected elements.</p>')+
