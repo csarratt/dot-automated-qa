@@ -6,6 +6,7 @@ const { spawnSync } = require('child_process');
 const { requirePublicUsaaUrl } = require('./url');
 const { resolveSauceCredentials } = require('./sauce-credentials');
 const { makePackage } = require('./report-package');
+const { compareDomInventories } = require('./dom-comparison');
 
 const project = path.resolve(__dirname, '..');
 const args = process.argv.slice(2);
@@ -66,7 +67,15 @@ function report(root, viewports, runId) {
     const baseline = snapshot(root, name, 'baseline', viewport);
     const variation = snapshot(root, name, 'variation', viewport);
     const links = difference(baseline, variation);
-    records.push({ browser: name, viewport, baseline, variation, links });
+    const domComparison = compareDomInventories(
+      baseline.domInventory, variation.domInventory);
+    // A successful comparison is a PASS for evidence collection only.
+    // Its changes are not automatically correct or defective.
+    variation.checks = variation.checks || {};
+    variation.checks.domComparison = domComparison.status === 'COMPARED' &&
+      !domComparison.truncated ? 'Passed' : 'Needs review';
+    records.push({ browser: name, viewport, baseline, variation,
+      links, domComparison });
   }
   fs.writeFileSync(path.join(root,'report.json'),
     JSON.stringify({ runId, records }, null, 2), { mode: 0o600 });
