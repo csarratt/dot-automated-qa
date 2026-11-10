@@ -73,6 +73,10 @@ test('report package is self-contained and SharePoint has correct fail-closed st
       ...checks,variationIdentity:'Active variation assignment detected (expected identity not supplied)'
     }));
     records[0].variation.screenshots.top='screenshots/chrome-variation-1366x768-top.png';
+    records[0].variation.pageSections = {
+      complete:true,frames:[{index:1,y:0,path:'screenshots/chrome-variation-1366x768-top.png'}]
+    };
+    records[0].variation.checks.fullPageCoverage='Passed';
     const output = makePackage(root,records,'test-run-123');
     assert.equal(output.summary.status,'REVIEW_REQUIRED');
     const sharepoint = JSON.parse(fs.readFileSync(path.join(output.root,'sharepoint-result.json'),'utf8'));
@@ -81,7 +85,12 @@ test('report package is self-contained and SharePoint has correct fail-closed st
     assert.equal(sharepoint.boxReportUrl,null);
     const manifest = JSON.parse(fs.readFileSync(path.join(output.root,'manifest.json'),'utf8'));
     assert(manifest.files.some(x=>x.path==='screenshots/chrome-variation-1366x768-top.png'));
-    assert(fs.readFileSync(path.join(output.root,'index.html'),'utf8').includes('REVIEW_REQUIRED'));
+    const html = fs.readFileSync(path.join(output.root,'index.html'),'utf8');
+    assert(html.includes('REVIEW_REQUIRED'));
+    assert(html.includes('Entire page screenshots: baseline vs variation'));
+    assert(html.includes('Section 1'));
+    assert(html.includes('Full page covered'));
+    assert.equal(output.summary.status,'REVIEW_REQUIRED');
     assert(!fs.readFileSync(path.join(output.root,'results.json'),'utf8').includes('YOUR_PREVIEW_URL'));
   } finally {
     fs.rmSync(temp,{recursive:true,force:true});
