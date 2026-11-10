@@ -6,6 +6,8 @@ const { acceptCookies } = require('../../dot-qa/cookie-consent');
 const { inspectOptimizelyState } = require('../../dot-qa/optimizely-state');
 const { validateVariationIdentity } = require('../../dot-qa/variation-validation');
 const { recordPageWalkthrough } = require('../../dot-qa/video-walkthrough');
+const { collectDomInventory } = require('../../dot-qa/dom-inventory');
+const { inspectResponsiveLayout } = require('../../dot-qa/responsive-layout');
 
 const mode = process.env.DOT_QA_MODE;
 const width = Number(process.env.DOT_QA_WIDTH);
@@ -204,6 +206,26 @@ describe('DOT public-page experiment QA', () => {
       report.checks.images = page.brokenImageCount ? 'Failed' : 'Passed';
       report.checks.overflow = page.horizontalOverflow > 2 ? 'Failed' : 'Passed';
       report.checks.links = page.links.some(link => link.issue) ? 'Needs review' : 'Passed';
+      // Phase 3: capture a bounded public-page inventory and potential
+      // responsive issues before scrolling changes sticky/animated content.
+      try {
+        report.domInventory = await collectDomInventory(browser);
+        report.checks.domInventory = report.domInventory.truncated ?
+          'Needs review' : 'Passed';
+      } catch (error) {
+        report.checks.domInventory = 'Needs review';
+        report.notes.push('DOM inventory unavailable: '+String(error.message||'Error')
+          .replace(/https?:\/\/[^\s"'<>]+/g,'[URL redacted]').slice(0,160));
+      }
+      try {
+        report.responsive = await inspectResponsiveLayout(browser);
+        report.checks.responsiveLayout = report.responsive.classification === 'PASS'
+          ? 'Passed' : 'Needs review';
+      } catch (error) {
+        report.checks.responsiveLayout = 'Needs review';
+        report.notes.push('Responsive scan unavailable: '+String(error.message||'Error')
+          .replace(/https?:\/\/[^\s"'<>]+/g,'[URL redacted]').slice(0,160));
+      }
       // Screenshot reflects the actual post-consent page, not hidden DOM elements.
       const top = `${prefix}-top.png`;
       await browser.saveScreenshot(path.join(shots, top));
