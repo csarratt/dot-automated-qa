@@ -46,6 +46,18 @@ test('missing remote browser result blocks completion', () => {
   }));
   assert.equal(aggregate(cases).status,'BLOCKED');
 });
+test('remote session termination is BLOCKED, not a website defect FAIL', () => {
+  const interrupted = snapshot('baseline',checks,'Blocked');
+  interrupted.executionErrorKind='REMOTE_SESSION_UNAVAILABLE';
+  interrupted.checks.fullPageCoverage='Blocked';
+  const cases = makeMatrix(pair(interrupted,snapshot('variation',checks)));
+  const result=aggregate(cases);
+  assert.equal(cases[0].executionStatus,'BLOCKED');
+  assert.equal(cases[0].checks.find(x=>x.id==='fullPageCoverage').status,'BLOCKED');
+  assert.equal(result.status,'BLOCKED');
+  assert.equal(result.passed,false);
+  assert(result.findings.some(x=>x.id==='executionBlocked'));
+});
 test('failed browser execution overrides missing check details', () => {
   const cases = makeMatrix(pair(snapshot('baseline',checks),
     snapshot('variation',{},'Failed')));
