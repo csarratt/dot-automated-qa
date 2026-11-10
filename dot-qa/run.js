@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 const { requirePublicUsaaUrl } = require('./url');
 const { resolveSauceCredentials } = require('./sauce-credentials');
+const { makePackage } = require('./report-package');
 
 const project = path.resolve(__dirname, '..');
 const args = process.argv.slice(2);
@@ -178,7 +179,17 @@ function main() {
     }
   }
   const records = report(root, viewports, runId);
-  console.log('Local report: ' + path.join(root,'report.html'));
+  const pkg = makePackage(root, records, runId, {
+    profile: {
+      spa: args.includes('--spa'),
+      authenticated: args.includes('--authenticated'),
+      accessibility: args.includes('--accessibility')
+    }
+  });
+  console.log('Phase 2 report: ' + path.join(pkg.root, 'index.html'));
+  console.log('SharePoint-ready JSON (NOT submitted): ' + path.join(pkg.root, 'sharepoint-result.json'));
+  console.log('QA decision: ' + pkg.summary.status + ' / Passed: ' + pkg.summary.passed);
+  console.log('Legacy report: ' + path.join(root,'report.html'));
   console.log('Browser/viewport comparisons: ' + records.length);
   if (failed || records.some(r =>
     ['Failed','Not executed'].includes(r.baseline.status) ||
