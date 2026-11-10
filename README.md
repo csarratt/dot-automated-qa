@@ -242,3 +242,45 @@ A Sauce video can reach the footer even if the remote session terminates before 
 The walk-through now uses a shorter pause and larger overlapping scroll increments to reduce remote-command overhead. This is a stability optimization, **not proof the session lifetime root cause has been identified**. Sauce Labs job videos remain available for manual review and are not downloaded into Box yet.
 
 Update these four files: `dot-qa/video-walkthrough.js`, `test/specs/dot-experiment.test.js`, `dot-qa/result-engine.js`, and `test/phase2.test.js`. First run `node --test test/phase2.test.js`. Then run one normal experiment if you want to verify the changes across all four browsers.
+
+## Phase 3: DOM and responsive comparison (November 2026)
+
+This update adds a privacy-conscious, bounded browser DOM inventory (visible headings, controls, links, images), static responsive geometry checks, and a comparison of the *same* browser and viewport's baseline versus variation. A new section of `package/index.html` groups actual actionable findings separately from unimplemented coverage; the latter no longer floods the initial report with repeated rows.
+
+**New files**
+- `dot-qa/dom-inventory.js`
+- `dot-qa/dom-comparison.js`
+- `dot-qa/responsive-layout.js`
+- `test/phase3.test.js`
+
+**Updated files**
+- `test/specs/dot-experiment.test.js`
+- `dot-qa/run.js`
+- `dot-qa/check-registry.js`
+- `dot-qa/report-package.js`
+
+Run both local suites before launching a browser:
+```bash
+node --test test/phase2.test.js test/phase3.test.js
+```
+Then validate one viewport in the normal runner:
+```bash
+node dot-qa/run.js --url 'YOUR_RWWW_PREVIEW_URL' --viewports 1366x768
+```
+
+### What is verified
+
+- Collecting a bounded *visible DOM inventory* in each baseline and variation browser session.
+- Comparing text and semantic type for headings, controls, links and images.
+- Detecting changed image/link resource **path fingerprints** without recording raw URLs or query strings.
+- Detecting substantial movement/size changes of unique matching DOM elements.
+- Reviewing interactive elements extending horizontally offscreen, mostly clipped by an ancestor, or significantly overlapping another independent control. These geometry heuristics are conservative: all such findings require review, they are **not confirmed website failures**.
+- Recording comparisons by browser, viewport and experience in `results.json` and showing them in the HTML report. No additional screenshot sets; the Sauce Labs video walk-through remains the primary review evidence.
+
+### What is NOT yet proved
+
+An automated DOM difference is not proof that intended Optimizely variation changes worked, and a DOM match is not proof that the experiment is correct. Image pixels, canvas, shadow-DOM internals, CSS pseudo-elements and visual regressions are not inspected. The DOM collection stops after 500 visible elements, the responsive scan after 600 interactive elements, and truncated scans are marked for review. Large dynamic sites may need tailored exclusions and event-based checks. Current viewport checks use resized desktop browsers, **not real mobile hardware**.
+
+The existing `expectedDomChanges`, `visualRegression`, and other unimplemented mandatory checks stay `NOT_TESTED`; the overall QA status remains `REVIEW_REQUIRED` for a healthy run, unless a confirmed failure or blocked session takes precedence. An advisor or experiment metadata source will ultimately need to specify expected changes to distinguish intentional differences from defects.
+
+Current evidence includes some page text and opaque resource fingerprints. Keep reports within approved USAA environments and **do not use this public-page DOM inventory for authenticated member pages until redaction and data classification are reviewed**. The Box/SharePoint integration is still future work.
