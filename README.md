@@ -234,3 +234,11 @@ Install these files into the existing work project:
 - Updated: `test/phase2.test.js`
 
 Run `node --test test/phase2.test.js` and then one standard run with `node dot-qa/run.js --url 'YOUR_PREVIEW_URL' --viewports 1366x768`. Open `package/index.html` and verify the links open the proper Sauce Labs job with the video tab and the expected scrolling behavior. Do not transfer sensitive job recordings to personal repositories.
+
+## Sauce video walk-through stability correction
+
+A Sauce video can reach the footer even if the remote session terminates before the WebDriver test returns. Such an interruption must not be classified as a website or variation defect. The active test now marks recognized terminated/missing remote sessions `Blocked` and the Phase 2 result engine maps those cases to `BLOCKED` for the SharePoint-ready status (unless a separate confirmed mandatory assertion failed). Original test notes and remote job ID are retained for diagnosis.
+
+The walk-through now uses a shorter pause and larger overlapping scroll increments to reduce remote-command overhead. This is a stability optimization, **not proof the session lifetime root cause has been identified**. Sauce Labs job videos remain available for manual review and are not downloaded into Box yet.
+
+Update these four files: `dot-qa/video-walkthrough.js`, `test/specs/dot-experiment.test.js`, `dot-qa/result-engine.js`, and `test/phase2.test.js`. First run `node --test test/phase2.test.js`. Then run one normal experiment if you want to verify the changes across all four browsers.
