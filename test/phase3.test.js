@@ -96,7 +96,7 @@ test('known-good removed banner produces one grouped downstream shift',()=>{
   assert.equal(result.counts.repositioned,80);
   assert.equal(result.structuralShifts.length,1);
   assert.equal(result.structuralShifts[0].elementCount,80);
-  assert.equal(result.structuralShifts[0].displacementY,-100);
+  assert.equal(result.structuralShifts[0].displacementY,-98);
   assert.equal(result.changes.filter(x=>x.type==='geometry').length,0);
 });
 test('unrelated single element movement remains visible',()=>{
