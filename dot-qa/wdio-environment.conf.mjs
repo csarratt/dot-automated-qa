@@ -16,6 +16,9 @@ export const config = {
   ...base,
   capabilities: base.capabilities.map(cap => {
     const options = { ...(cap['sauce:options'] || {}) };
+    // Video evidence is the primary review artifact for this QA runner.
+    options.recordVideo = true;
+    // Keep Sauce Labs session visibility at its existing approved setting.
     delete options.tunnelName;
     delete options.tunnelOwner;
     if (runway) {
