@@ -150,3 +150,51 @@ node dot-qa/run.js --url 'YOUR_OPTIMIZELY_PREVIEW_URL' --viewports 1366x768 --ex
 The numeric IDs above are examples, not real test IDs. If you supply an expected experiment but omit the variation, only the experiment assignment is checked. The runner cannot infer which change was intended from a preview URL alone. A future test-definition/Optimizely API integration can supply expected IDs and DOM assertions automatically without requiring OAs to type them.
 
 Update these three files locally: `dot-qa/variation-validation.js` (new), `test/specs/dot-experiment.test.js`, and `dot-qa/run.js`. Leave the current credential loader, consent helper, and WDIO configuration unchanged.
+
+## Phase 2: QA decision framework and portable reporting (current)
+
+**Authoritative output is now `qa-results/runs/<run-id>/package/index.html`**, not the older `report.html`. The legacy report continues to be generated for backwards compatibility. Phase 2 applies a central registry, typed check statuses and conservative aggregation. It does not add new browser-based validations. Because required future-phase tests are NOT_TESTED, the overall result should currently be REVIEW_REQUIRED for an otherwise healthy test run, not PASS. A confirmed failed required test becomes FAIL; missing remote execution becomes BLOCKED. Execution failures override incomplete checks. This is intentional and does not mean your previously working browser tests suddenly broke.
+
+Update these files in the existing work project:
+
+- New: `dot-qa/check-registry.js`
+- New: `dot-qa/result-engine.js`
+- New: `dot-qa/report-package.js`
+- Updated: `dot-qa/run.js`
+- New: `test/phase2.test.js` (unit test, no browser session)
+
+Run unit tests before using Sauce Labs:
+
+```bash
+node --test test/phase2.test.js
+```
+
+Then run a normal experiment:
+
+```bash
+node dot-qa/run.js --url 'YOUR_PREVIEW_URL' --viewports 1366x768
+```
+
+For cases where it is relevant, explicitly enable additional mandatory scope checks with `--spa`, `--authenticated`, and/or `--accessibility`. Not specifying these flags does **not** certify the tested page has no SPA, authenticated, or accessibility requirements; the request/intake workflow must provide appropriate applicability metadata.
+
+### Package contract
+
+Each execution retains its unique run directory. Its `package/` subfolder contains:
+
+- `index.html` — portable review report with finding list, per-browser check matrices, and relative screenshot links
+- `results.json` — full structured check-level status, severity, coverage, evidence links
+- `sharepoint-result.json` — future SharePoint field payload, including `qaPassed`, authoritative status and counts
+- `manifest.json` — file list, byte size and SHA-256 hashes for upload verification
+- `screenshots/` — copies of relevant local evidence, referenced with relative links
+
+The package is **local only**. `sharepoint-result.json` explicitly sets `published:false`, `boxReportUrl:null` and `sharepointWriteStatus:NOT_ATTEMPTED`. No Box or SharePoint API actions are performed. Before integrating Box, validate whether its supported HTML viewer resolves sibling files; a Box link to `index.html` cannot be assumed to function as a static website. All images and outputs must undergo the organization's data-handling review before upload. A Zip download or approved static hosting mechanism may be needed.
+
+### Status definitions
+
+- `PASS`: every applicable required check is implemented, executed and passed
+- `FAIL`: at least one required test or remote execution failed
+- `BLOCKED`: required validation could not run or necessary remote result was not produced
+- `REVIEW_REQUIRED`: no conclusive required failure, but unverified, ambiguous or unimplemented mandatory assertions remain
+- Check-level `NOT_TESTED` and `NOT_APPLICABLE` are not treated as passing tests
+
+A SharePoint Yes/No flag is `true` **only** for overall PASS. For blocked/review/fail it is false with a separate status code. No authorization to publish an experiment is granted by these results. Existing DOT review/publish separation of duties still applies.
