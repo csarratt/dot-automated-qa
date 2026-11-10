@@ -100,11 +100,16 @@ function report(root, viewports, runId) {
       ...(r.links.queryOnly || []).map(i => 'Query presence differs: ' + i.label)
     ].slice(0, 12).map(escape).join('<br>') || 'None';
     const linkDescription = `${r.links.addedCount || 0} added, ${r.links.removedCount || 0} removed, ${r.links.queryOnlyCount || 0} query-only`;
+    const visualEvidence = !r.baseline.page || !r.variation.page
+      ? 'Not available'
+      : (r.links.addedCount || r.links.removedCount)
+        ? 'Link differences detected (review intended changes)'
+        : 'No link additions/removals (visual changes not assessed)';
     const status = s => `${escape(s.status)}${checks(s)}`;
     const details = `<details class="details"><summary>Review differences</summary><div class="findings">${example}</div></details>`;
     return `<tr><td><strong>${escape(r.browser)}</strong></td><td>${escape(r.viewport)}</td>` +
       `<td>${status(r.baseline)}</td><td>${status(r.variation)}</td>` +
-      `<td>${escape(r.links.status)}<div class="small">${escape(linkDescription)}</div>${details}</td>` +
+      `<td>${escape(r.links.status)}<div class="small">${escape(linkDescription)}</div><div class="small">${escape(visualEvidence)}</div>${details}</td>` +
       `<td><div class="small">Baseline: ${screenshot(r.baseline)}</div><div class="small">Variation: ${screenshot(r.variation)}</div></td></tr>`;
   }).join('\n');
 
@@ -112,7 +117,7 @@ function report(root, viewports, runId) {
     `<meta name="viewport" content="width=device-width,initial-scale=1">` +
     `<title>DOT Experiment QA</title><style>body{font:15px system-ui,sans-serif;max-width:1400px;margin:30px auto;padding:0 18px;color:#20252a}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ddd;padding:12px;text-align:left;vertical-align:top}th{background:#f4f5f6}details{overflow-wrap:anywhere}details.details{margin-top:7px}details.details summary{cursor:pointer;color:#315c8a;font-size:13px}details.details .findings{padding:8px 0;font-size:13px;line-height:1.5}p{line-height:1.5}.mini{font-size:12px}.mini td{padding:4px 8px}.small{font-size:12px;line-height:1.5;margin-top:4px}td{max-width:260px;overflow-wrap:anywhere}</style></head><body>` +
     `<h1>DOT Experiment QA</h1><p>Run ID: ${escape(runId)}</p>` +
-    `<p><strong>Review required:</strong> Original screenshots are unmodified evidence. The runner selects the real Accept Cookies control where available and captures post-consent evidence. If the banner remains, inspect the screenshots. Cookie acceptance can affect tracking and must be consistent across experiences. Link differences are findings, not automatic defect determinations. Variation identity, Optimizely metrics, JS/network errors, CTA interactions, visual regression, Runway authentication and mobile devices are NOT TESTED by this build.</p>` +
+    `<p><strong>Review required:</strong> Original screenshots are unmodified evidence. The runner selects the real Accept Cookies control where available and captures post-consent evidence. If the banner remains, inspect the screenshots. Cookie acceptance can affect tracking and must be consistent across experiences. Link differences are findings, not automatic defect determinations. Active Optimizely assignment is checked against expected IDs when provided; this does NOT prove visual changes executed. Optimizely metrics, JS/network errors, CTA interactions, visual regression, Runway authentication and mobile devices are NOT TESTED by this build.</p>` +
     `<table><thead><tr><th>Browser</th><th>CSS viewport</th><th>Baseline</th><th>Variation</th><th>Link changes</th><th>Screenshots</th></tr></thead><tbody>${rows}</tbody></table>` +
     `<p>Baseline uses optimizely_disable=true and independent remote sessions. Sanitized link comparisons omit query values and may miss changes. Query-presence changes are separated to reduce false positives. No automatic pixel-level visual regression is performed. Keep all reports local and restricted.</p></body></html>`;
   fs.writeFileSync(path.join(root,'report.html'), html, { mode: 0o600 });
@@ -130,6 +135,14 @@ function main() {
     process.exitCode = 1;
     return;
   }
+  const expectedExperiment = argument('--expect-experiment');
+  const expectedVariation = argument('--expect-variation');
+  if (expectedExperiment !== undefined && !/^\d{3,25}$/.test(expectedExperiment))
+    throw new Error('Expected experiment ID must contain only digits');
+  if (expectedVariation !== undefined && !/^\d{3,25}$/.test(expectedVariation))
+    throw new Error('Expected variation ID must contain only digits');
+  if (expectedVariation && !expectedExperiment)
+    throw new Error('--expect-variation requires --expect-experiment');
   const preview = requirePublicUsaaUrl(argument('--url')).toString();
   const viewports = (argument('--viewports') || '1366x768')
     .split(',').map(s => s.trim());
@@ -154,7 +167,9 @@ function main() {
       cwd: project,
       env: { ...process.env, SAUCE_USERNAME: sauce.username,
         SAUCE_ACCESS_KEY: sauce.accessKey, DOT_QA_URL: preview, DOT_QA_MODE: mode,
-        DOT_QA_WIDTH: w, DOT_QA_HEIGHT: h, DOT_QA_OUTPUT: root },
+        DOT_QA_WIDTH: w, DOT_QA_HEIGHT: h, DOT_QA_OUTPUT: root,
+        DOT_QA_EXPECT_EXPERIMENT: expectedExperiment || '',
+        DOT_QA_EXPECT_VARIATION: expectedVariation || '' },
       stdio: 'inherit', timeout: 420000
     });
     if (result.error || result.status !== 0) {
