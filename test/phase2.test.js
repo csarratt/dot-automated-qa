@@ -87,7 +87,7 @@ test('report package is self-contained and SharePoint has correct fail-closed st
     assert(manifest.files.some(x=>x.path==='screenshots/chrome-variation-1366x768-top.png'));
     const html = fs.readFileSync(path.join(output.root,'index.html'),'utf8');
     assert(html.includes('REVIEW_REQUIRED'));
-    assert(html.includes('Entire page screenshots: baseline vs variation'));
+    assert(html.includes('Full page review'));
     assert(html.includes('Section 1'));
     assert(html.includes('Full page covered'));
     assert.equal(output.summary.status,'REVIEW_REQUIRED');
