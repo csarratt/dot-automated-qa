@@ -46,6 +46,22 @@ function makePackage(runRoot, records, runId, opts = {}) {
           type:label,path:copied.get(filename)
         });
       }
+      // The sections are independent evidence files in the portable package.
+      // Keep their scroll positions and coverage status for side-by-side review.
+      for (const frame of snap.pageSections?.frames || []) {
+        const source = verifyPath(runRoot,frame.path);
+        if (!source) continue;
+        const filename = path.basename(frame.path);
+        if (!copied.has(filename)) {
+          fs.copyFileSync(source,path.join(captures,filename));
+          copied.set(filename,'screenshots/'+filename);
+        }
+        screenshotEvidence.push({
+          browser:record.browser,viewport:record.viewport,mode,
+          type:'section',index:frame.index,y:frame.y,
+          path:copied.get(filename)
+        });
+      }
     }
   }
   const payload = {
@@ -102,16 +118,41 @@ function makePackage(runRoot, records, runId, opts = {}) {
     c.checks.map(x=>'<tr><td>'+esc(x.title)+'</td><td>'+esc(x.severity)+
       '</td><td>'+esc(x.status)+'</td><td>'+esc(x.detail)+'</td></tr>').join('')+
     '</tbody></table></details>').join('');
-  const gallery = screenshotEvidence.map(x =>
-    '<li><a href="'+esc(x.path)+'">'+esc(x.browser)+' · '+esc(x.viewport)+
-    ' · '+esc(x.mode)+' · '+esc(x.type)+'</a></li>').join('');
+  const gallery = records.map(r => {
+    const one = mode => {
+      const snap=r[mode]||{};
+      const frames=screenshotEvidence.filter(x=>x.browser===r.browser &&
+        x.viewport===r.viewport && x.mode===mode && x.type==='section')
+        .sort((a,b)=>a.index-b.index);
+      const status=snap.pageSections?.complete?'Full page covered':
+        'INCOMPLETE / NOT VERIFIED';
+      if(!frames.length) return '<div class="gallery-column"><h4>'+
+        esc(mode)+'</h4><p>No page sections captured</p></div>';
+      return '<div class="gallery-column"><h4>'+esc(mode)+
+        ' · '+esc(status)+'</h4>'+
+        frames.map(x=>'<figure><figcaption>Section '+x.index+
+          ' · scroll Y '+esc(x.y)+' px · <a href="'+esc(x.path)+
+          '">Open PNG</a></figcaption><img loading="lazy" alt="'+
+          esc(r.browser+' '+r.viewport+' '+mode+' section '+x.index)+
+          '" src="'+esc(x.path)+'"></figure>').join('')+'</div>';
+    };
+    return '<details class="page-gallery"><summary>'+esc(r.browser)+' · '+
+      esc(r.viewport)+' — full page review</summary>'+
+      '<p class="muted">Overlapping viewport captures, not a stitched image. Sticky headers may repeat. Compare matching sections manually; this does not perform automated visual regression.</p>'+
+      '<div class="compare-grid">'+one('baseline')+one('variation')+'</div></details>';
+  }).join('');
   const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">'+
     '<meta name="viewport" content="width=device-width,initial-scale=1">'+
     '<title>DOT QA · '+esc(runId)+'</title><style>'+
     'body{font:15px system-ui,sans-serif;max-width:1200px;margin:24px auto;padding:0 20px;color:#252a30}'+
     'table{border-collapse:collapse;width:100%;margin-bottom:20px}th,td{padding:9px;text-align:left;border-bottom:1px solid #ddd;vertical-align:top}'+
     'th{background:#f2f4f6}td{overflow-wrap:anywhere}details{margin:10px 0;padding:10px;border:1px solid #ddd;border-radius:6px}'+
-    'summary{cursor:pointer;font-weight:600}h1,h2{line-height:1.3}.muted{color:#555}a{color:#18538a}</style></head><body>'+
+    'summary{cursor:pointer;font-weight:600}h1,h2{line-height:1.3}.muted{color:#555}a{color:#18538a}'+
+    '.compare-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}'+
+    '.gallery-column{min-width:0}.gallery-column img{width:100%;display:block}'+
+    '.gallery-column figure{margin:0 0 10px;border:1px solid #ccc}'+
+    '.gallery-column figcaption{padding:4px 8px;font-size:12px;background:#f2f4f6}'+
+    '@media(max-width:720px){.compare-grid{grid-template-columns:1fr}}</style></head><body>'+
     '<h1>DOT Automated Experiment QA</h1><p><strong>Overall status: '+
     esc(summary.status)+'</strong> · QA passed: '+(summary.passed?'Yes':'No')+'</p>'+
     '<p class="muted">Execution '+esc(runId)+' · '+esc(payload.createdAt)+
@@ -123,7 +164,7 @@ function makePackage(runRoot, records, runId, opts = {}) {
     '</tbody></table>'+
     (summary.findings.length>200?'<p>Additional findings appear in results.json.</p>':'')+
     '<h2>Browser and viewport matrix</h2>'+matrix+
-    '<h2>Screenshots</h2><ul>'+gallery+'</ul>'+
+    '<h2>Entire page screenshots: baseline vs variation</h2>'+gallery+
     '<p class="muted">Screenshots are linked relatively and may contain confidential material. No files were uploaded to Box or SharePoint. Do not share without approval. The old report.html is retained for compatibility.</p>'+
     '</body></html>';
   fs.writeFileSync(path.join(out,'index.html'),html,{mode:0o600});
