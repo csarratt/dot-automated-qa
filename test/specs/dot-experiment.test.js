@@ -5,6 +5,7 @@ const { requirePublicUsaaUrl, createBaselineUrl } = require('../../dot-qa/url');
 const { acceptCookies } = require('../../dot-qa/cookie-consent');
 const { inspectOptimizelyState } = require('../../dot-qa/optimizely-state');
 const { validateVariationIdentity } = require('../../dot-qa/variation-validation');
+const { capturePageSections } = require('../../dot-qa/page-sections');
 
 const mode = process.env.DOT_QA_MODE;
 const width = Number(process.env.DOT_QA_WIDTH);
@@ -219,6 +220,15 @@ describe('DOT public-page experiment QA', () => {
         report.screenshots.bottom = `screenshots/${bottom}`;
       }
       report.checks.scrolling = await scrollCheck();
+      // Capture each visible vertical section after consent. This produces
+      // complete page coverage without relying on browser-specific stitching.
+      report.pageSections = await capturePageSections(browser,{
+        directory:shots,prefix,maxSections:40
+      });
+      report.checks.fullPageCoverage = report.pageSections.complete
+        ? 'Passed' : 'Needs review';
+      if(!report.pageSections.complete) report.notes.push(
+        'Full-page capture incomplete: '+report.pageSections.reason);
       for (const item of ['optimizelyMetrics', 'javascriptErrors',
         'networkErrors', 'ctaInteractions', 'visualRegression']) {
         report.checks[item] = 'Not tested';
