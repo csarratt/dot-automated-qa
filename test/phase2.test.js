@@ -73,9 +73,8 @@ test('report package is self-contained and SharePoint has correct fail-closed st
       ...checks,variationIdentity:'Active variation assignment detected (expected identity not supplied)'
     }));
     records[0].variation.screenshots.top='screenshots/chrome-variation-1366x768-top.png';
-    records[0].variation.pageSections = {
-      complete:true,frames:[{index:1,y:0,path:'screenshots/chrome-variation-1366x768-top.png'}]
-    };
+    records[0].variation.sauceJobId='abcdef1234567890';
+    records[0].variation.videoWalkthrough = {complete:true,steps:9};
     records[0].variation.checks.fullPageCoverage='Passed';
     const output = makePackage(root,records,'test-run-123');
     assert.equal(output.summary.status,'REVIEW_REQUIRED');
@@ -87,9 +86,9 @@ test('report package is self-contained and SharePoint has correct fail-closed st
     assert(manifest.files.some(x=>x.path==='screenshots/chrome-variation-1366x768-top.png'));
     const html = fs.readFileSync(path.join(output.root,'index.html'),'utf8');
     assert(html.includes('REVIEW_REQUIRED'));
-    assert(html.includes('Full page review'));
-    assert(html.includes('Section 1'));
-    assert(html.includes('Full page covered'));
+    assert(html.includes('Video walkthroughs'));
+    assert(html.includes('https://app.saucelabs.com/tests/abcdef1234567890'));
+    assert(html.includes('Scroll completed'));
     assert.equal(output.summary.status,'REVIEW_REQUIRED');
     assert(!fs.readFileSync(path.join(output.root,'results.json'),'utf8').includes('YOUR_PREVIEW_URL'));
   } finally {
