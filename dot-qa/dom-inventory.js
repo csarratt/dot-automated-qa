@@ -11,6 +11,16 @@ async function collectDomInventory(browser) {
       return !!(r.width && r.height && s.display !== 'none' &&
         s.visibility !== 'hidden' && +s.opacity > 0);
     };
+    const fingerprint = value => {
+      try {
+        const url=new URL(String(value||''),location.href);
+        // Ignore query strings (preview tokens, campaign attribution, etc).
+        const text=url.origin+url.pathname;
+        let hash=2166136261;
+        for(let i=0;i<text.length;i++) hash=Math.imul(hash^text.charCodeAt(i),16777619);
+        return (hash>>>0).toString(16);
+      } catch {return null;}
+    };
     const root = document.querySelector('main,[role="main"]') || document.body;
     const candidates = [...root.querySelectorAll('h1,h2,h3,h4,h5,h6,button,a[href],img,[role="button"],input,select,textarea')]
       .filter(visible).slice(0,500);
@@ -27,7 +37,9 @@ async function collectDomInventory(browser) {
       const type=tag==='input'?clean(el.getAttribute('type')):'';
       const r=el.getBoundingClientRect();
       const style=getComputedStyle(el);
-      return {kind,tag,label,type,
+      const resourceFingerprint=tag==='img'?fingerprint(el.currentSrc||el.getAttribute('src')):
+        tag==='a'?fingerprint(el.href):null;
+      return {kind,tag,label,type,resourceFingerprint,
         geometry:{
           x:Math.round(r.left+scrollX), y:Math.round(r.top+scrollY),
           width:Math.round(r.width),height:Math.round(r.height)
