@@ -60,7 +60,7 @@ function aggregate(cases) {
   const all = cases.flatMap(c => c.checks);
   const counts = Object.fromEntries(STATUSES.map(s =>
     [s, all.filter(x=>x.status===s).length]));
-  const failed = relevant.some(x=>x.status==='FAIL');
+  const failed = cases.some(c=>c.executionStatus==='FAIL') || relevant.some(x=>x.status==='FAIL');
   const blocked = cases.some(c=>c.executionStatus==='BLOCKED') ||
     relevant.some(x=>x.status==='BLOCKED');
   const incomplete = relevant.some(x =>
@@ -68,6 +68,13 @@ function aggregate(cases) {
   const status = failed ? 'FAIL' : blocked ? 'BLOCKED' :
     incomplete || !relevant.length ? 'REVIEW_REQUIRED' : 'PASS';
   const findings = [];
+  for (const c of cases) {
+    if (c.executionStatus === 'FAIL') findings.push({
+      browser:c.browser, viewport:c.viewport, mode:c.mode,
+      id:'executionFailure', title:'Browser QA test failed', severity:'critical',
+      status:'FAIL', detail:'See local WebdriverIO logs for the underlying failure'
+    });
+  }
   for (const c of cases) for (const check of c.checks) {
     if (check.required && ['FAIL','BLOCKED','REVIEW_REQUIRED','NOT_TESTED'].includes(check.status)) {
       findings.push({
