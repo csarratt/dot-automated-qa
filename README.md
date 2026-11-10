@@ -198,3 +198,21 @@ The package is **local only**. `sharepoint-result.json` explicitly sets `publish
 - Check-level `NOT_TESTED` and `NOT_APPLICABLE` are not treated as passing tests
 
 A SharePoint Yes/No flag is `true` **only** for overall PASS. For blocked/review/fail it is false with a separate status code. No authorization to publish an experiment is granted by these results. Existing DOT review/publish separation of duties still applies.
+
+## Complete page review evidence (November 2026)
+
+The prior top/bottom pair was insufficient to inspect long experiment pages. The current runner now records **overlapping screenshot sections from header through footer**, after actual cookie acceptance, for each browser / viewport / experience. The package includes every section screenshot, an explicit `fullPageCoverage` status, and an organized, expandable **baseline vs variation** gallery at the start of `package/index.html`.
+
+This is deliberately **not** called a single stitched full-page PNG: the remote browsers capture viewport-sized images while scrolling. There is slight overlap between sections, and sticky elements may repeat. A follow-up phase can create stitched PNGs using a verified image-compositing library. The section-based approach covers all four remote browsers without assuming browser-specific native full-page screenshot support. No automatic pixel-diff is performed; `visualRegression` remains NOT_TESTED.
+
+The capture walks through up to 40 sections per experience at approximately 85% of the viewport height and waits briefly to help lazy-loaded content appear. If it cannot confirm it reached the footer, `fullPageCoverage` is marked NEEDS REVIEW and the package labels the capture incomplete. Very long or continually expanding pages may require targeted adjustments. Capturing complete pages increases execution time and Box package size; we will measure this when piloting several viewports.
+
+Install only these updated/new files:
+
+- **New:** `dot-qa/page-sections.js`
+- **Updated:** `test/specs/dot-experiment.test.js`
+- **Updated:** `dot-qa/check-registry.js`
+- **Updated:** `dot-qa/report-package.js`
+- **Updated:** `test/phase2.test.js`
+
+No change required to `dot-qa/run.js` for this update. Run `node --test test/phase2.test.js` first, then execute one 1366x768 preview with the existing `node dot-qa/run.js --url ...` command. Open `package/index.html`, expand **Full page review**, and verify both experiences reach the footer. Results remain local; no Box/SharePoint upload is performed.
