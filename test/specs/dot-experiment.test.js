@@ -4,6 +4,7 @@ const path = require('path');
 const { requirePublicUsaaUrl, createBaselineUrl } = require('../../dot-qa/url');
 const { acceptCookies } = require('../../dot-qa/cookie-consent');
 const { inspectOptimizelyState } = require('../../dot-qa/optimizely-state');
+const { validateVariationIdentity } = require('../../dot-qa/variation-validation');
 
 const mode = process.env.DOT_QA_MODE;
 const width = Number(process.env.DOT_QA_WIDTH);
@@ -187,7 +188,12 @@ describe('DOT public-page experiment QA', () => {
         : !os.previewLayerIds.length ? 'Not determined (preview layer ID unavailable)'
         : os.matchedPreviewLayer ? 'Active ID matched preview layer (review required)'
         : 'Unconfirmed (no active ID matched preview layer)';
-      report.notes.push('Optimizely state inspection is read-only: it does not prove that variation changes executed or any metric fired.');
+      const identity = validateVariationIdentity(os, mode,
+        process.env.DOT_QA_EXPECT_EXPERIMENT || null,
+        process.env.DOT_QA_EXPECT_VARIATION || null);
+      report.checks.variationIdentity = identity.status;
+      report.variationIdentityMatched = identity.matched;
+      report.notes.push('Assignment verification uses Optimizely state. It does not prove that intended DOM changes executed or any metric fired.');
       report.checks.viewport = page.viewport.width === width && page.viewport.height === height ? 'Passed' : 'Failed';
       report.checks.page = page.ready && page.hasContent ? 'Passed' : 'Failed';
       report.checks.images = page.brokenImageCount ? 'Failed' : 'Passed';
@@ -213,12 +219,16 @@ describe('DOT public-page experiment QA', () => {
         report.screenshots.bottom = `screenshots/${bottom}`;
       }
       report.checks.scrolling = await scrollCheck();
-      for (const item of ['variationIdentity', 'optimizelyMetrics', 'javascriptErrors',
+      for (const item of ['optimizelyMetrics', 'javascriptErrors',
         'networkErrors', 'ctaInteractions', 'visualRegression']) {
         report.checks[item] = 'Not tested';
       }
       report.status = ['renderReady','viewport','page','images','overflow','scrolling'].some(k =>
         report.checks[k] === 'Failed') ? 'Failed' : 'Passed with review';
+      if (identity.matched === false && mode === 'variation') {
+        report.status = 'Failed';
+        throw new Error('Optimizely variation assignment was not confirmed');
+      }
       if (report.status === 'Failed') throw new Error('Core page validation failed');
     } catch (error) {
       report.status = 'Failed';
