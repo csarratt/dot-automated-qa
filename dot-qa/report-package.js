@@ -46,22 +46,7 @@ function makePackage(runRoot, records, runId, opts = {}) {
           type:label,path:copied.get(filename)
         });
       }
-      // The sections are independent evidence files in the portable package.
-      // Keep their scroll positions and coverage status for side-by-side review.
-      for (const frame of snap.pageSections?.frames || []) {
-        const source = verifyPath(runRoot,frame.path);
-        if (!source) throw new Error('Required page-section screenshot missing from local evidence');
-        const filename = path.basename(frame.path);
-        if (!copied.has(filename)) {
-          fs.copyFileSync(source,path.join(captures,filename));
-          copied.set(filename,'screenshots/'+filename);
-        }
-        screenshotEvidence.push({
-          browser:record.browser,viewport:record.viewport,mode,
-          type:'section',index:frame.index,y:frame.y,
-          path:copied.get(filename)
-        });
-      }
+
     }
   }
   const payload = {
@@ -76,9 +61,15 @@ function makePackage(runRoot, records, runId, opts = {}) {
     cases,
     findings:summary.findings,
     screenshots:screenshotEvidence,
+    videoSessions:records.flatMap(r=>['baseline','variation'].map(mode=>({
+      browser:r.browser,viewport:r.viewport,mode,
+      jobId:r[mode]?.sauceJobId || null,
+      scrollComplete:r[mode]?.videoWalkthrough?.complete === true,
+      videoAssetVerified:false
+    }))),
     warnings:[
       'No external publication or member-data approval is implied by this local package.',
-      'Screenshot files may contain internal or sensitive on-screen information; review before any Box upload.',
+      'Screenshots and Sauce Labs session videos may contain confidential information; review access and handling before publishing.',
       'The expected variation DOM, metrics, runtime and visual-regression checks are not implemented.',
       'PASS means all applicable required checks completed and passed, not authorization to publish.'
     ]
@@ -120,26 +111,24 @@ function makePackage(runRoot, records, runId, opts = {}) {
     '</tbody></table></details>').join('');
   const gallery = records.map(r => {
     const one = mode => {
-      const snap=r[mode]||{};
-      const frames=screenshotEvidence.filter(x=>x.browser===r.browser &&
-        x.viewport===r.viewport && x.mode===mode && x.type==='section')
-        .sort((a,b)=>a.index-b.index);
-      const status=snap.pageSections?.complete?'Full page covered':
-        'INCOMPLETE / NOT VERIFIED';
-      if(!frames.length) return '<div class="gallery-column"><h4>'+
-        esc(mode)+'</h4><p>No page sections captured</p></div>';
-      return '<div class="gallery-column"><h4>'+esc(mode)+
-        ' · '+esc(status)+'</h4>'+
-        frames.map(x=>'<figure><figcaption>Section '+x.index+
-          ' · scroll Y '+esc(x.y)+' px · <a href="'+esc(x.path)+
-          '">Open PNG</a></figcaption><img loading="lazy" alt="'+
-          esc(r.browser+' '+r.viewport+' '+mode+' section '+x.index)+
-          '" src="'+esc(x.path)+'"></figure>').join('')+'</div>';
+      const snap = r[mode] || {};
+      const id = snap.sauceJobId;
+      const safeId = typeof id === 'string' && /^[a-f0-9-]{12,128}$/i.test(id) ? id : null;
+      const jobUrl = safeId ? 'https://app.saucelabs.com/tests/'+safeId : null;
+      const status = snap.videoWalkthrough?.complete ? 'Scroll completed' :
+        'Scroll incomplete / not verified';
+      return '<div class="gallery-column"><h4>'+esc(mode)+'</h4>'+
+        '<p>'+esc(status)+'</p>'+
+        (jobUrl ? '<p><a href="'+esc(jobUrl)+'" target="_blank" rel="noopener noreferrer">Watch or download recording in Sauce Labs</a></p>'
+          : '<p>Session link unavailable</p>')+
+        '<p class="muted">Recording availability not verified; Sauce Labs access required. Assets expire under the Sauce Labs retention policy.</p>'+
+        (snap.screenshots?.top ?
+          '<p><a href="'+esc(snap.screenshots.top)+'">Top screenshot</a></p>' : '')+
+        '</div>';
     };
-    return '<details class="page-gallery"><summary>'+esc(r.browser)+' · '+
-      esc(r.viewport)+' — full page review</summary>'+
-      '<p class="muted">Overlapping viewport captures, not a stitched image. Sticky headers may repeat. Compare matching sections manually; this does not perform automated visual regression.</p>'+
-      '<div class="compare-grid">'+one('baseline')+one('variation')+'</div></details>';
+    return '<details><summary>'+esc(r.browser)+' · '+esc(r.viewport)+
+      ' — recorded walkthrough</summary><div class="compare-grid">'+
+      one('baseline')+one('variation')+'</div></details>';
   }).join('');
   const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">'+
     '<meta name="viewport" content="width=device-width,initial-scale=1">'+
@@ -158,14 +147,14 @@ function makePackage(runRoot, records, runId, opts = {}) {
     '<p class="muted">Execution '+esc(runId)+' · '+esc(payload.createdAt)+
     ' · '+summary.requiredPassed+' / '+summary.requiredCount+' mandatory checks passed</p>'+
     '<p><strong>Decision rule:</strong> FAIL overrides BLOCKED; BLOCKED overrides REVIEW REQUIRED; only a fully complete mandatory suite can PASS. NOT TESTED is never a pass.</p>'+
-    '<h2>Full page review</h2>'+gallery+
+    '<h2>Video walkthroughs</h2>'+gallery+
     '<h2>Mandatory findings ('+summary.findings.length+')</h2>'+
     '<table><thead><tr><th>Status</th><th>Severity</th><th>Check</th><th>Browser/viewport/mode</th><th>Evidence</th></tr></thead><tbody>'+
     (summaryTable || '<tr><td colspan="5">No unresolved mandatory findings</td></tr>')+
     '</tbody></table>'+
     (summary.findings.length>200?'<p>Additional findings appear in results.json.</p>':'')+
     '<h2>Browser and viewport matrix</h2>'+matrix+
-    '<p class="muted">Screenshots are linked relatively and may contain confidential material. No files were uploaded to Box or SharePoint. Do not share without approval. The old report.html is retained for compatibility.</p>'+
+    '<p class="muted">Sauce Labs videos are not included in this package. Remote links require appropriate account access and are subject to asset retention. No Box or SharePoint upload was performed. The legacy report.html remains available.</p>'+
     '</body></html>';
   fs.writeFileSync(path.join(out,'index.html'),html,{mode:0o600});
 
