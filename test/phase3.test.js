@@ -82,3 +82,27 @@ test('report groups not-tested checks and displays DOM findings separately',()=>
     assert.equal(results.qaPassed,false);
   } finally { fs.rmSync(tmp,{recursive:true,force:true}); }
 });
+
+test('known-good removed banner produces one grouped downstream shift',()=>{
+  const baseline=[
+    item('heading','h2',"Curious which cards you'll qualify for?",0,90),
+    item('link','a','for a USAA credit card',0,115),
+    ...Array.from({length:80},(_,i)=>item('link','a','Card link '+i,0,400+i*38))
+  ];
+  const variation=Array.from({length:80},(_,i)=>
+    item('link','a','Card link '+i,0,302+i*38));
+  const result=compareDomInventories(inv(baseline),inv(variation));
+  assert.equal(result.counts.removed,2);
+  assert.equal(result.counts.repositioned,80);
+  assert.equal(result.structuralShifts.length,1);
+  assert.equal(result.structuralShifts[0].elementCount,80);
+  assert.equal(result.structuralShifts[0].displacementY,-100);
+  assert.equal(result.changes.filter(x=>x.type==='geometry').length,0);
+});
+test('unrelated single element movement remains visible',()=>{
+  const diff=compareDomInventories(
+    inv([item('control','button','Apply',20,100)]),
+    inv([item('control','button','Apply',20,180)]));
+  assert.equal(diff.structuralShifts.length,0);
+  assert.equal(diff.changes.find(x=>x.type==='geometry').dy,80);
+});
