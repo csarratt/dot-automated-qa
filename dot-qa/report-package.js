@@ -50,7 +50,7 @@ function makePackage(runRoot, records, runId, opts = {}) {
       // Keep their scroll positions and coverage status for side-by-side review.
       for (const frame of snap.pageSections?.frames || []) {
         const source = verifyPath(runRoot,frame.path);
-        if (!source) continue;
+        if (!source) throw new Error('Required page-section screenshot missing from local evidence');
         const filename = path.basename(frame.path);
         if (!copied.has(filename)) {
           fs.copyFileSync(source,path.join(captures,filename));
