@@ -5,7 +5,7 @@
 function compareDomInventories(before, after) {
   if (!before || !after || !Array.isArray(before.entries) || !Array.isArray(after.entries))
     return {status:'NOT_TESTED',reason:'One or both DOM inventories unavailable',changes:[],counts:{}};
-  const signature = e=>JSON.stringify([e.kind,e.tag,e.label,e.type||'']);
+  const signature = e=>JSON.stringify([e.kind,e.tag,e.label,e.type||'',e.resourceFingerprint||'']);
   const counts = entries=>{
     const map=new Map();
     for(const entry of entries) {
@@ -48,7 +48,7 @@ function compareDomInventories(before, after) {
     limitations:['Changes are findings for human review, not an automatic defect',
       'Dynamic content and layout changes may occur without an experiment',
       'A matching inventory does not verify the expected experiment executed',
-      'Image source changes and pixels are intentionally not evaluated'],
+      'Image/link resource path changes use opaque fingerprints; pixel differences are not evaluated'],
     counts:{
       baseline:before.entries.length,variation:after.entries.length,
       added:changes.filter(c=>c.type==='added').reduce((n,c)=>n+c.count,0),
