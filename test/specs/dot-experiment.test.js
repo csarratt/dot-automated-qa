@@ -5,7 +5,7 @@ const { requirePublicUsaaUrl, createBaselineUrl } = require('../../dot-qa/url');
 const { acceptCookies } = require('../../dot-qa/cookie-consent');
 const { inspectOptimizelyState } = require('../../dot-qa/optimizely-state');
 const { validateVariationIdentity } = require('../../dot-qa/variation-validation');
-const { capturePageSections } = require('../../dot-qa/page-sections');
+const { recordPageWalkthrough } = require('../../dot-qa/video-walkthrough');
 
 const mode = process.env.DOT_QA_MODE;
 const width = Number(process.env.DOT_QA_WIDTH);
@@ -156,6 +156,10 @@ describe('DOT public-page experiment QA', () => {
     const report = { browser: browserName, mode, viewportTarget: `${width}x${height}`,
       status: 'Failed', checks: {}, screenshots: {}, notes: [] };
     try {
+      // Persist only Sauce job ID, not preview URLs or credentials.
+      report.sauceJobId = typeof browser.sessionId === 'string' &&
+        /^[a-f0-9-]{12,128}$/i.test(browser.sessionId)
+        ? browser.sessionId : null;
       await browser.url(target);
       await browser.waitUntil(() => browser.execute(() => document.readyState === 'complete'),
         { timeout: 30000 });
@@ -220,15 +224,13 @@ describe('DOT public-page experiment QA', () => {
         report.screenshots.bottom = `screenshots/${bottom}`;
       }
       report.checks.scrolling = await scrollCheck();
-      // Capture each visible vertical section after consent. This produces
-      // complete page coverage without relying on browser-specific stitching.
-      report.pageSections = await capturePageSections(browser,{
-        directory:shots,prefix,maxSections:40
-      });
-      report.checks.fullPageCoverage = report.pageSections.complete
+      // Sauce Labs normally records every desktop session. Give reviewers a
+      // controlled visual walk-through, without generating dozens of images.
+      report.videoWalkthrough = await recordPageWalkthrough(browser);
+      report.checks.fullPageCoverage = report.videoWalkthrough.complete
         ? 'Passed' : 'Needs review';
-      if(!report.pageSections.complete) report.notes.push(
-        'Full-page capture incomplete: '+report.pageSections.reason);
+      if (!report.videoWalkthrough.complete) report.notes.push(
+        'Video walkthrough did not reach document end: '+report.videoWalkthrough.reason);
       for (const item of ['optimizelyMetrics', 'javascriptErrors',
         'networkErrors', 'ctaInteractions', 'visualRegression']) {
         report.checks[item] = 'Not tested';
