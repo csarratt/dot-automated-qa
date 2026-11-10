@@ -18,7 +18,7 @@ const registry = Object.freeze([
   { id:'javascriptErrors', title:'Runtime JavaScript errors', category:'Runtime', severity:'high', required:true, scope:'both', implementation:'planned' },
   { id:'networkErrors', title:'Failed network dependencies', category:'Runtime', severity:'high', required:true, scope:'both', implementation:'planned' },
   { id:'ctaInteractions', title:'Safe primary interactions', category:'Functionality', severity:'high', required:true, scope:'variation', implementation:'planned' },
-  { id:'fullPageCoverage', title:'Full-page screenshot coverage', category:'Visual', severity:'high', required:true, scope:'both', implementation:'implemented' },
+  { id:'fullPageCoverage', title:'Recorded full-page scroll coverage', category:'Visual', severity:'high', required:true, scope:'both', implementation:'implemented' },
   { id:'visualRegression', title:'Full page visual comparison', category:'Visual', severity:'high', required:true, scope:'variation', implementation:'planned' },
   { id:'responsiveLayout', title:'Clipping, overlap and touch targets', category:'Responsive', severity:'high', required:true, scope:'both', implementation:'planned' },
   { id:'spaLifecycle', title:'SPA transitions and duplicate activation', category:'Optimizely', severity:'high', required:true, scope:'variation', implementation:'planned', applicability:'when-spa' },
