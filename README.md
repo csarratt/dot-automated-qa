@@ -136,3 +136,17 @@ node dot-qa/run.js --url 'YOUR_OPTIMIZELY_PREVIEW_URL' --viewports 1366x768
 ```
 
 Only the DOT runner's child processes receive the credentials. Direct manual `npx wdio` commands do not automatically use this fallback. Legacy documentation mentioning temporary terminal credentials is superseded by this section.
+
+## Variation assignment verification (November 2026)
+
+The runner now inspects Optimizely's read-only active state and records `variationIdentity` for the variation session. It distinguishes (1) active variation assignment with no expected IDs supplied, (2) explicit expected experiment/variation ID match, (3) mismatch, and (4) holdback/no active assignment. An unexpected assignment fails the variation session so it is not accidentally treated as a pass. This is **assignment verification, not proof that the intended DOM changes executed**. Existing link comparisons remain evidence for review and are not conclusive visual checks.
+
+By default, keep the current single-URL command. To assert a known experiment and variation ID:
+
+```bash
+node dot-qa/run.js --url 'YOUR_OPTIMIZELY_PREVIEW_URL' --viewports 1366x768 --expect-experiment 123456789 --expect-variation 987654321
+```
+
+The numeric IDs above are examples, not real test IDs. If you supply an expected experiment but omit the variation, only the experiment assignment is checked. The runner cannot infer which change was intended from a preview URL alone. A future test-definition/Optimizely API integration can supply expected IDs and DOM assertions automatically without requiring OAs to type them.
+
+Update these three files locally: `dot-qa/variation-validation.js` (new), `test/specs/dot-experiment.test.js`, and `dot-qa/run.js`. Leave the current credential loader, consent helper, and WDIO configuration unchanged.
